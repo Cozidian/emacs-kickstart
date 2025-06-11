@@ -25,6 +25,7 @@
 - [[#development][Development]]
   - [[#projectile][Projectile]]
   - [[#eglot][Eglot]]
+  - [[#markdown-mode][Markdown mode]]
   - [[#yasnippet][Yasnippet]]
   - [[#language-modes][Language modes]]
   - [[#terminal][Terminal]]
@@ -422,6 +423,17 @@ Use visual block to uncomment easily in Org documents (C-v).
     ;;  (add-to-list 'eglot-server-programs
     ;;               `(lua-mode . ("PATH_TO_THE_LSP_FOLDER/bin/lua-language-server" "-lsp"))) ;; Adds our lua lsp server to eglot's server list
     ;;  )
+#+end_src
+
+** Markdown mode
+Need this for lsp-bridge
+#+begin_src emacs-lisp
+(use-package markdown-mode
+  :ensure t
+  :mode ("README\\.md\\'" . gfm-mode)
+  :init (setq markdown-command "multimarkdown")
+  :bind (:map markdown-mode-map
+         ("C-c C-e" . markdown-do)))
 #+end_src
 
 ** Yasnippet
