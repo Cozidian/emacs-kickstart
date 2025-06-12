@@ -215,7 +215,8 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
 
       (start/leader-keys
         "o" '(:ignore t :wk "Org")
-        "o a" '(org-agenda :wk "Org agenda"))
+        "o a" '(org-agenda :wk "Org agenda")
+    	"o c" '(org-capture :wk "Org capture"))
 
       (start/leader-keys
         "q" '(:ignore t :wk "Quit")
@@ -226,6 +227,9 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
         "t t" '(visual-line-mode :wk "Toggle truncated lines (wrap)")
         "t l" '(display-line-numbers-mode :wk "Toggle line numbers")))
 #+end_src
+
+#+RESULTS:
+: t
 
 ** Good Defaults
 #+begin_src emacs-lisp
@@ -429,15 +433,28 @@ Use SPC-tab to uncomment the lines.
 #     (use-package lua-mode
 #       :mode "\\.lua\\'") ;; Only start in a lua file
 # #+end_src
-*** Typescript mode 
+*** Typescript mode
 #+begin_src emacs-lisp
-(setq lsp-bridge-multi-lang-server-mode-list
-      '((typescript-mode . "typescript-language-server")
-        (typescript-ts-mode . "typescript-language-server")
-        (typescript-tsx-mode . "typescript-language-server")))
+    (use-package typescript-mode :ensure t)
+#+end_src
 
-  (add-to-list 'lsp-bridge-default-mode-hooks
-               '(typescript-tsx-mode . "tailwindcss-language-server"))
+*** Typescript lsp 
+#+begin_src emacs-lisp
+    ;;     (setq lsp-bridge-multi-lang-server-mode-list
+    ;;           '((typescript-mode . "typescript-language-server")
+    ;;             (typescript-ts-mode . "typescript-language-server")
+    ;;             (typescript-tsx-mode . "typescript-language-server")))
+
+    ;;       (add-to-list 'lsp-bridge-default-mode-hooks
+    ;;                    '(typescript-tsx-mode . "tailwindcss-language-server"))
+    (setq lsp-bridge-multi-lang-server-extension-list
+      '(
+        (("ts" )   . "typescript_eslint")
+        (("tsx" )   . "typescriptreact_eslint_tailwindcss")
+        (("jsx" )   . "javascriptreact_eslint_tailwindcss")
+        (("html") . "html_tailwindcss")
+        )
+      )
 #+end_src
 *** Org Mode
 Org mode is one of the things that emacs is loved for.
@@ -445,28 +462,80 @@ Once you've used it for a bit, you'll understand why people love it. Even readin
 For example, this document is effectively the source code and descriptions bound into the one document,
 much like the literate programming ideas that Donald Knuth made famous.
 #+begin_src emacs-lisp
-        (use-package org
-          :ensure nil
-          :custom
-          (org-edit-src-content-indentation 4) ;; Set src block automatic indent to 4 instead of 2.
-    	  (org-agenda-files (append
-                       (directory-files-recursively "~/org" "\\.org$")
-                       (directory-files-recursively "~/notes" "\\.org$")))
+    (use-package org
+      :ensure nil
+      :custom
+      (org-edit-src-content-indentation 4) ;; Set src block automatic indent to 4 instead of 2.
+      (org-agenda-files (append
+        				 (directory-files-recursively "~/org" "\\.org$")
+        				 (directory-files-recursively "~/notes" "\\.org$")))
 
-          (org-directory "~/org")
-          (org-log-into-drawer t)
-          (org-clock-into-drawer t)
+      (org-directory "~/org")
+      (org-default-notes-file (expand-file-name "inbox.org" org-directory))
+      (org-capture-templates
+       '(("t" "Todo" entry (file+headline "~/org/todo.org" "Tasks")
+          "* TODO %?\n  %U\n  %a")
+         ("n" "Note" entry (file+headline "~/org/notes.org" "Notes")
+          "* %?\n  %U\n  %a")
+         ("i" "Inbox" entry (file "~/org/inbox.org")
+          "* %?\nEntered on %U\n  %i\n  %a")))
+      (org-log-into-drawer t)
+      (org-clock-into-drawer t)
+      (org-todo-keywords
+       '((sequence "TODO(t)" "IN-PROGRESS(p)" "|" "DONE(d)")
+         (sequence "WAIT(w)" "HOLD(h)" "|" "CANCELLED(c)")))
+      
+      (org-log-done 'time) ;; Log timestamp when marked DONE
+      (org-log-into-drawer t) ;; Store logs in :LOGBOOK: drawer
 
-          :hook
-          (org-mode . org-indent-mode) ;; Indent text
-          ;; The following prevents <> from auto-pairing when electric-pair-mode is on.
-          ;; Otherwise, org-tempo is broken when you try to <s TAB...
-          ;;(org-mode . (lambda ()
-          ;;              (setq-local electric-pair-inhibit-predicate
-          ;;                          `(lambda (c)
-          ;;                             (if (char-equal c ?<) t (,electric-pair-inhibit-predicate c))))))
-          )
+      (org-confirm-babel-evaluate nil)
+      (org-pretty-entities t) ;; Replace things like \alpha with α
+      (org-hide-emphasis-markers t) ;; Hide *bold* markers visually
+
+
+      :hook
+      (org-mode . org-indent-mode) ;; Indent text
+      ;; The following prevents <> from auto-pairing when electric-pair-mode is on.
+      ;; Otherwise, org-tempo is broken when you try to <s TAB...
+      ;;(org-mode . (lambda ()
+      ;;              (setq-local electric-pair-inhibit-predicate
+      ;;                          `(lambda (c)
+      ;;                             (if (char-equal c ?<) t (,electric-pair-inhibit-predicate c))))))
+      )
 #+end_src
+
+#+RESULTS:
+| org-tempo-setup | org-superstar-mode | #[0 \300\301\302\303\304$\207 [add-hook change-major-mode-hook org-fold-show-all append local] 5] | #[0 \300\301\302\303\304$\207 [add-hook change-major-mode-hook org-babel-show-result-all append local] 5] | org-babel-result-hide-spec | org-babel-hide-all-hashes | toc-org-mode | org-indent-mode | #[nil ((if (cl-every #'(lambda (pred) (lsp-bridge-check-predicate pred global-lsp-bridge-mode)) lsp-bridge-enable-predicates) (progn (lsp-bridge-mode 1)))) (t)] | #[nil ((add-hook 'after-save-hook #'start/org-babel-tangle-config)) nil] |
+
+**** Org babel generel
+#+begin_src emacs-lisp
+(use-package ob-typescript
+  :ensure t
+  :after org)
+
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((python . t)
+   (js . t)
+   (typescript . t)))
+#+end_src
+
+**** Htmlize
+#+begin_src emacs-lisp
+(use-package htmlize
+  :ensure t)
+#+end_src
+
+#+RESULTS:
+
+**** Org reveal
+#+begin_src emacs-lisp
+    (add-to-list 'load-path "~/.config/emacs-extra/org-reveal")
+    (require 'ox-reveal)
+#+end_src
+
+#+RESULTS:
+: ox-reveal
 
 **** Table of Contents
 #+begin_src emacs-lisp

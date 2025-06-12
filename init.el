@@ -114,7 +114,8 @@
 
   (start/leader-keys
     "o" '(:ignore t :wk "Org")
-    "o a" '(org-agenda :wk "Org agenda"))
+    "o a" '(org-agenda :wk "Org agenda")
+	"o c" '(org-capture :wk "Org capture"))
 
   (start/leader-keys
     "q" '(:ignore t :wk "Quit")
@@ -266,25 +267,54 @@
   (global-treesit-auto-mode)
   (treesit-auto-add-to-auto-mode-alist 'all))
 
-(setq lsp-bridge-multi-lang-server-mode-list
-      '((typescript-mode . "typescript-language-server")
-        (typescript-ts-mode . "typescript-language-server")
-        (typescript-tsx-mode . "typescript-language-server")))
+(use-package typescript-mode :ensure t)
 
-  (add-to-list 'lsp-bridge-default-mode-hooks
-               '(typescript-tsx-mode . "tailwindcss-language-server"))
+;;     (setq lsp-bridge-multi-lang-server-mode-list
+;;           '((typescript-mode . "typescript-language-server")
+;;             (typescript-ts-mode . "typescript-language-server")
+;;             (typescript-tsx-mode . "typescript-language-server")))
+
+;;       (add-to-list 'lsp-bridge-default-mode-hooks
+;;                    '(typescript-tsx-mode . "tailwindcss-language-server"))
+(setq lsp-bridge-multi-lang-server-extension-list
+  '(
+    (("ts" )   . "typescript_eslint")
+    (("tsx" )   . "typescriptreact_eslint_tailwindcss")
+    (("jsx" )   . "javascriptreact_eslint_tailwindcss")
+    (("html") . "html_tailwindcss")
+    )
+  )
 
 (use-package org
   :ensure nil
   :custom
   (org-edit-src-content-indentation 4) ;; Set src block automatic indent to 4 instead of 2.
   (org-agenda-files (append
-               (directory-files-recursively "~/org" "\\.org$")
-               (directory-files-recursively "~/notes" "\\.org$")))
+    				 (directory-files-recursively "~/org" "\\.org$")
+    				 (directory-files-recursively "~/notes" "\\.org$")))
 
   (org-directory "~/org")
+  (org-default-notes-file (expand-file-name "inbox.org" org-directory))
+  (org-capture-templates
+   '(("t" "Todo" entry (file+headline "~/org/todo.org" "Tasks")
+      "* TODO %?\n  %U\n  %a")
+     ("n" "Note" entry (file+headline "~/org/notes.org" "Notes")
+      "* %?\n  %U\n  %a")
+     ("i" "Inbox" entry (file "~/org/inbox.org")
+      "* %?\nEntered on %U\n  %i\n  %a")))
   (org-log-into-drawer t)
   (org-clock-into-drawer t)
+  (org-todo-keywords
+   '((sequence "TODO(t)" "IN-PROGRESS(p)" "|" "DONE(d)")
+     (sequence "WAIT(w)" "HOLD(h)" "|" "CANCELLED(c)")))
+  
+  (org-log-done 'time) ;; Log timestamp when marked DONE
+  (org-log-into-drawer t) ;; Store logs in :LOGBOOK: drawer
+
+  (org-confirm-babel-evaluate nil)
+  (org-pretty-entities t) ;; Replace things like \alpha with α
+  (org-hide-emphasis-markers t) ;; Hide *bold* markers visually
+
 
   :hook
   (org-mode . org-indent-mode) ;; Indent text
@@ -295,6 +325,22 @@
   ;;                          `(lambda (c)
   ;;                             (if (char-equal c ?<) t (,electric-pair-inhibit-predicate c))))))
   )
+
+(use-package ob-typescript
+  :ensure t
+  :after org)
+
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((python . t)
+   (js . t)
+   (typescript . t)))
+
+(use-package htmlize
+  :ensure t)
+
+(add-to-list 'load-path "~/.config/emacs-extra/org-reveal")
+(require 'ox-reveal)
 
 (use-package toc-org
   :commands toc-org-enable
