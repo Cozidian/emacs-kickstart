@@ -27,9 +27,12 @@
                          ("elpa" . "https://elpa.gnu.org/packages/")
                          ("nongnu" . "https://elpa.nongnu.org/nongnu/"))) ;; For Eat Terminal
 
+(add-to-list 'exec-path "/opt/homebrew/bin")
+(setenv "PATH" (concat "/opt/homebrew/bin:" (getenv "PATH")))
+
 (use-package exec-path-from-shell
   :ensure t
-  :if (memq window-system '(mac ns x))
+  :if (memq window-system '(mac ns x)) ;; Only needed on macOS/NS
   :config
   (setq exec-path-from-shell-variables '("PATH" "OPENROUTER_API_KEY"))
   (exec-path-from-shell-initialize))
@@ -70,7 +73,8 @@
   (start/leader-keys
     "." '(find-file :wk "Find file")
     "TAB" '(comment-line :wk "Comment lines")
-    "p" '(projectile-command-map :wk "Projectile command map"))
+    "p" '(projectile-command-map :wk "Projectile command map")
+	":" '(execute-extended-command :wk "M-x"))
 
   (start/leader-keys
     "f" '(:ignore t :wk "Find")
@@ -124,7 +128,25 @@
   (start/leader-keys
     "t" '(:ignore t :wk "Toggle")
     "t t" '(visual-line-mode :wk "Toggle truncated lines (wrap)")
-    "t l" '(display-line-numbers-mode :wk "Toggle line numbers")))
+    "t l" '(display-line-numbers-mode :wk "Toggle line numbers"))
+  (general-define-key
+   :states 'normal
+   :keymaps 'lsp-bridge-mode-map
+   "gd" 'lsp-bridge-find-def
+   "gD" 'lsp-bridge-find-def-other-window
+   "gr" 'lsp-bridge-find-references
+   "gi" 'lsp-bridge-find-impl
+   "K"  'lsp-bridge-popup-documentation
+   "gR" 'lsp-bridge-rename
+   "ga" 'lsp-bridge-code-action)
+  (general-define-key
+   :states '(normal visual)
+   :keymaps 'override
+   "gc" 'evilnc-comment-operator)
+  )
+
+(setq mac-right-option-modifier 'none)
+(setq ns-right-option-modifier 'none)
 
 (use-package emacs
   :custom
@@ -175,9 +197,28 @@
           nil nil t)
   )
 
-(use-package gruvbox-theme
+;; (use-package gruvbox-theme
+    ;;   :config
+    ;;   (load-theme 'gruvbox-dark-medium t)) ;; We need to add t to trust this package
+(use-package doom-themes
+  :ensure t
+  :custom
+  ;; Global settings (defaults)
+  (doom-themes-enable-bold t)   ; if nil, bold is universally disabled
+  (doom-themes-enable-italic t) ; if nil, italics is universally disabled
+  ;; for treemacs users
+  (doom-themes-treemacs-theme "doom-atom") ; use "doom-colors" for less minimal icon theme
   :config
-  (load-theme 'gruvbox-dark-medium t)) ;; We need to add t to trust this package
+  (load-theme 'doom-one t)
+
+  ;; Enable flashing mode-line on errors
+  (doom-themes-visual-bell-config)
+  ;; Enable custom neotree theme (nerd-icons must be installed!)
+  (doom-themes-neotree-config)
+  ;; or for treemacs users
+  (doom-themes-treemacs-config)
+  ;; Corrects (and improves) org-mode's native fontification.
+  (doom-themes-org-config))
 
 (add-to-list 'default-frame-alist '(alpha-background . 90)) ;; For all new frames henceforth
 
@@ -249,6 +290,9 @@
 
 (require 'lsp-bridge)
 (global-lsp-bridge-mode)
+
+(use-package evil-nerd-commenter
+  :ensure t)
 
 (use-package markdown-mode
   :ensure t
