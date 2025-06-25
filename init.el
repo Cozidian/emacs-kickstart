@@ -129,6 +129,11 @@
     "t" '(:ignore t :wk "Toggle")
     "t t" '(visual-line-mode :wk "Toggle truncated lines (wrap)")
     "t l" '(display-line-numbers-mode :wk "Toggle line numbers"))
+  (start/leader-keys
+	"c" '(:ignore t :wk "Code")
+	"c a" '((lambda () (interactive) (lsp-bridge-code-action)) :wk "Code actions")
+	"c s" '(lsp-bridge-workspace-list-symbols :wk "List symbols")
+	"c x" '(lsp-bridge-diagnostic-list :wk "List diagnostic"))
   (general-define-key
    :states 'normal
    :keymaps 'lsp-bridge-mode-map
@@ -137,8 +142,7 @@
    "gr" 'lsp-bridge-find-references
    "gi" 'lsp-bridge-find-impl
    "K"  'lsp-bridge-popup-documentation
-   "gR" 'lsp-bridge-rename
-   "ga" 'lsp-bridge-code-action)
+   "gR" 'lsp-bridge-rename)
   (general-define-key
    :states '(normal visual)
    :keymaps 'override
@@ -248,31 +252,65 @@
   (doom-modeline-persp-name t)  ;; Adds perspective name to modeline
   (doom-modeline-persp-icon t)) ;; Adds folder icon next to persp name
 
-(use-package gptel
-  :ensure t
+(add-to-list 'load-path "~/.config/emacs-extra/mcp.el") ;; adjust if needed
+
+(use-package mcp
+  :ensure nil  ;; don't pull from MELPA
   :config
-  (setq gptel-api-key #'(lambda () (getenv "OPENROUTER_API_KEY")))
+  (require 'mcp-hub)
+  :hook (after-init . mcp-hub-start-all-server))
 
-  (setq gptel-backend
-        (gptel-make-openai
-         "OpenRouter"
-         :host "openrouter.ai"
-         :endpoint "/api/v1/chat/completions"
-         :stream t
-         :key gptel-api-key
-         :models '(google/gemini-2.0-flash-001
-				   google/gemini-2.5-flash-preview-05-20
-                   ;; other models optional
-                   )))
+(use-package gptel
+      :ensure t
+      :config
+      (setq gptel-api-key #'(lambda () (getenv "OPENROUTER_API_KEY")))
 
-  (setq gptel-default-backend gptel-backend
-        gptel-model 'google/gemini-2.0-flash-001
-        gptel-default-mode 'org-mode)
+      (setq gptel-backend
+            (gptel-make-openai
+             "OpenRouter"
+             :host "openrouter.ai"
+             :endpoint "/api/v1/chat/completions"
+             :stream t
+             :key gptel-api-key
+             :models '(google/gemini-2.0-flash-001
+    				   google/gemini-2.5-flash-preview-05-20
+                       ;; other models optional
+                       )))
 
-  (add-hook 'gptel-post-response-functions 'gptel-end-of-response)
+      (setq gptel-default-backend gptel-backend
+            gptel-model 'google/gemini-2.0-flash-001
+            gptel-default-mode 'org-mode)
 
-  (setf (alist-get 'org-mode gptel-prompt-prefix-alist) "@user\n")
-  (setf (alist-get 'org-mode gptel-response-prefix-alist) "@assistant\n"))
+      (add-hook 'gptel-post-response-functions 'gptel-end-of-response)
+
+      (require 'gptel-integrations)
+      (setq mcp-hub-servers nil)
+      (setq mcp-hub-servers 
+'(("github" . (:command "docker"
+))))
+
+      (setq github-mcp-key #'(lambda () (getenv "GITHUB_PERSONAL_ACCESS_TOKEN")))
+	  (setq mcp-hub-servers 
+			'(("github" . (:command "docker"
+									:args ("run" "--rm" "-i" "-e" "GITHUB_PERSONAL_ACCESS_TOKEN" "ghcr.io/github/github-mcp-server") 
+									:env (:GITHUB_PERSONAL_ACCESS_TOKEN github-mcp-key)))))
+
+      (setf (alist-get 'org-mode gptel-prompt-prefix-alist) "@user\n")
+      (setf (alist-get 'org-mode gptel-response-prefix-alist) "@assistant\n"))
+
+(use-package aidermacs
+  :bind (("C-c a" . aidermacs-transient-menu))
+  :config
+  ; defun my-get-openrouter-api-key yourself elsewhere for security reasons
+
+  (setenv "OPENROUTER_API_KEY" (getenv "OPENROUTER_API_KEY"))
+  :custom
+  ; See the Configuration section below
+  (aidermacs-default-chat-mode 'architect)
+  (aidermacs-default-model "sonnet"))
+
+(use-package vterm
+    :ensure t)
 
 (use-package projectile
   :init
@@ -398,6 +436,25 @@
   :ensure nil
   :after org)
 
+(use-package denote
+  :ensure t
+  :hook (dired-mode . denote-dired-mode)
+  :bind
+  (("C-c n n" . denote)
+   ("C-c n r" . denote-rename-file)
+   ("C-c n l" . denote-link)
+   ("C-c n b" . denote-backlinks)
+   ("C-c n d" . denote-dired)
+   ("C-c n g" . denote-grep))
+  :config
+  (setq denote-directory (expand-file-name "~/notes/"))
+
+  ;; Automatically rename Denote buffers when opening them so that
+  ;; instead of their long file name they have, for example, a literal
+  ;; "[D]" followed by the file's title.  Read the doc string of
+  ;; `denote-rename-buffer-format' for how to modify this.
+  (denote-rename-buffer-mode 1))
+
 (use-package eat
   :hook ('eshell-load-hook #'eat-eshell-mode))
 
@@ -425,60 +482,6 @@
          (magit-pre-refresh  . diff-hl-magit-pre-refresh)
          (magit-post-refresh . diff-hl-magit-post-refresh))
   :init (global-diff-hl-mode))
-
-;; (use-package corfu
-;;   ;; Optional customizations
-;;   :custom
-;;   (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
-;;   (corfu-auto t)                 ;; Enable auto completion
-;;   (corfu-auto-prefix 2)          ;; Minimum length of prefix for auto completion.
-;;   (corfu-popupinfo-mode t)       ;; Enable popup information
-;;   (corfu-popupinfo-delay 0.5)    ;; Lower popupinfo delay to 0.5 seconds from 2 seconds
-;;   (corfu-separator ?\s)          ;; Orderless field separator, Use M-SPC to enter separator
-;;   ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
-;;   ;; (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
-;;   ;; (corfu-preview-current nil)    ;; Disable current candidate preview
-;;   ;; (corfu-preselect 'prompt)      ;; Preselect the prompt
-;;   ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
-;;   ;; (corfu-scroll-margin 5)        ;; Use scroll margin
-;;   (completion-ignore-case t)
-;;   ;; Enable indentation+completion using the TAB key.
-;;   ;; `completion-at-point' is often bound to M-TAB.
-;;   (tab-always-indent 'complete)
-;;   (corfu-preview-current nil) ;; Don't insert completion without confirmation
-;;   ;; Recommended: Enable Corfu globally.  This is recommended since Dabbrev can
-;;   ;; be used globally (M-/).  See also the customization variable
-;;   ;; `global-corfu-modes' to exclude certain modes.
-;;   :init
-;;   (global-corfu-mode))
-
-;; (use-package nerd-icons-corfu
-;;   :after corfu
-;;   :init (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
-
-;; (use-package cape
-;;   :after corfu
-;;   :init
-;;   ;; Add to the global default value of `completion-at-point-functions' which is
-;;   ;; used by `completion-at-point'.  The order of the functions matters, the
-;;   ;; first function returning a result wins.  Note that the list of buffer-local
-;;   ;; completion functions takes precedence over the global list.
-;;   ;; The functions that are added later will be the first in the list
-
-;;   (add-to-list 'completion-at-point-functions #'cape-dabbrev) ;; Complete word from current buffers
-;;   (add-to-list 'completion-at-point-functions #'cape-dict) ;; Dictionary completion
-;;   (add-to-list 'completion-at-point-functions #'cape-file) ;; Path completion
-;;   (add-to-list 'completion-at-point-functions #'cape-elisp-block) ;; Complete elisp in Org or Markdown mode
-;;   (add-to-list 'completion-at-point-functions #'cape-keyword) ;; Keyword/Snipet completion
-
-;;   ;;(add-to-list 'completion-at-point-functions #'cape-abbrev) ;; Complete abbreviation
-;;   ;;(add-to-list 'completion-at-point-functions #'cape-history) ;; Complete from Eshell, Comint or minibuffer history
-;;   ;;(add-to-list 'completion-at-point-functions #'cape-line) ;; Complete entire line from current buffer
-;;   ;;(add-to-list 'completion-at-point-functions #'cape-elisp-symbol) ;; Complete Elisp symbol
-;;   ;;(add-to-list 'completion-at-point-functions #'cape-tex) ;; Complete Unicode char from TeX command, e.g. \hbar
-;;   ;;(add-to-list 'completion-at-point-functions #'cape-sgml) ;; Complete Unicode char from SGML entity, e.g., &alpha
-;;   ;;(add-to-list 'completion-at-point-functions #'cape-rfc1345) ;; Complete Unicode char using RFC 1345 mnemonics
-;;   )
 
 (use-package orderless
   :custom
