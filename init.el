@@ -102,6 +102,21 @@
     "d j" '(dired-jump :wk "Dired jump to current"))
 
   (start/leader-keys
+    "w" '(:ignore t :wk "Window")
+    "w d" '(evil-window-delete :wk "Window delete")
+	"w D" '(delete-other-windows :wk "Delete other windows")
+    "w s" '(evil-window-split :wk "Window split")
+    "w v" '(evil-window-vsplit :wk "Window split vertical")
+    "w h" '(evil-window-left :wk "Window left")
+    "w H" '(evil-window-move-far-left :wk "Window move left")
+    "w l" '(evil-window-right :wk "Window right")
+    "w L" '(evil-window-move-far-right :wk "Window move right")
+    "w k" '(evil-window-up :wk "Window up")
+    "w K" '(evil-window-move-very-top :wk "Window move up")
+    "w j" '(evil-window-down :wk "Window down")
+    "w J" '(evil-window-move-very-bottom :wk "Window move down"))
+
+  (start/leader-keys
     "g" '(:ignore t :wk "Git")
     "g g" '(magit-status :wk "Magit status"))
 
@@ -334,31 +349,38 @@
         company-idle-delay 0.0))  ;; show completions immediately
 
 (use-package lsp-mode
-  :init
-  ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
-  (setq lsp-keymap-prefix "C-c l")
-  :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
-         (typescript-mode . lsp)
-         ;; if you want which-key integration
-         (lsp-mode . lsp-enable-which-key-integration))
-  :commands (lsp lsp-deferred))
+          :init
+          ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
+          (setq lsp-keymap-prefix "C-c l")
+          :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
+                 (typescript-mode . lsp)
+                 (emacs-lisp-mode . lsp)
+                 ;; if you want which-key integration
+                 (lsp-mode . lsp-enable-which-key-integration))
+          :commands (lsp lsp-deferred))
 
-;; optionally
-(use-package lsp-ui :commands lsp-ui-mode)
-;; if you are helm user
-(use-package helm-lsp :commands helm-lsp-workspace-symbol)
-;; if you are ivy user
-(use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
-(use-package lsp-treemacs :commands lsp-treemacs-errors-list)
+        ;; optionally
+        (use-package lsp-ui :commands lsp-ui-mode)
+        ;; if you are helm user
+        (use-package helm-lsp :commands helm-lsp-workspace-symbol)
+        ;; if you are ivy user
+        (use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
+        (use-package lsp-treemacs :commands lsp-treemacs-errors-list)
 
-;; optionally if you want to use debugger
-(use-package dap-mode)
-;; (use-package dap-LANGUAGE) to load the dap adapter for your language
+        ;; optionally if you want to use debugger
+        (use-package dap-mode)
+        ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
 
-;; optional if you want which-key integration
-(use-package which-key
-    :config
-    (which-key-mode))
+        ;; optional if you want which-key integration
+    (use-package which-key
+            :config
+            (which-key-mode))
+
+(add-hook 'org-src-mode-hook
+          (lambda ()
+            ;; Only try to start LSP in the source edit buffer if it's Emacs Lisp
+            (when (derived-mode-p 'emacs-lisp-mode)
+              (lsp-deferred))))
 
 (use-package evil-nerd-commenter
   :ensure t)
@@ -447,6 +469,13 @@
 (use-package toc-org
   :commands toc-org-enable
   :hook (org-mode . toc-org-mode))
+
+(setq org-superstar-remove-leading-stars t)
+(setq org-superstar-special-todo-items t)
+(setq org-superstar-headline-bullets-list '("●" "○" "◆" "◇" "▸"))
+(setq org-superstar-leading-bullet ?\s) ;; Use space instead of . or anything
+(setq org-hide-leading-stars nil) ;; Optional, shows all stars if you want
+(setq org-indent-mode-turns-on-org-indent nil) ;; 🔥 the important bit
 
 (use-package org-superstar
   :after org
