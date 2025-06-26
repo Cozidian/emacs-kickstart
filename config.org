@@ -29,7 +29,8 @@
 - [[#development][Development]]
   - [[#vterm][Vterm]]
   - [[#projectile][Projectile]]
-  - [[#lsp-brigde][Lsp-brigde]]
+  - [[#company][Company]]
+  - [[#lsp-mode][Lsp-mode]]
   - [[#evil-commenter][Evil commenter]]
   - [[#markdown-mode][Markdown mode]]
   - [[#yasnippet][Yasnippet]]
@@ -248,22 +249,11 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
 
       (start/leader-keys
         "t" '(:ignore t :wk "Toggle")
+    	"t b" '(my/toggle-big-font :wk "Toggle big font")
         "t t" '(visual-line-mode :wk "Toggle truncated lines (wrap)")
         "t l" '(display-line-numbers-mode :wk "Toggle line numbers"))
       (start/leader-keys
-    	"c" '(:ignore t :wk "Code")
-    	"c a" '((lambda () (interactive) (lsp-bridge-code-action)) :wk "Code actions")
-    	"c s" '(lsp-bridge-workspace-list-symbols :wk "List symbols")
-    	"c x" '(lsp-bridge-diagnostic-list :wk "List diagnostic"))
-      (general-define-key
-       :states 'normal
-       :keymaps 'lsp-bridge-mode-map
-       "gd" 'lsp-bridge-find-def
-       "gD" 'lsp-bridge-find-def-other-window
-       "gr" 'lsp-bridge-find-references
-       "gi" 'lsp-bridge-find-impl
-       "K"  'lsp-bridge-popup-documentation
-       "gR" 'lsp-bridge-rename)
+    	"c" '(:ignore t :wk "Code"))
       (general-define-key
        :states '(normal visual)
        :keymaps 'override
@@ -392,6 +382,31 @@ With Emacs version 29, true transparency has been added.
     (setq-default line-spacing 0.12)
 #+end_src
 
+*** Big font mode
+#+begin_src emacs-lisp
+(defvar my/default-font "JetBrains Mono")
+(defvar my/default-font-size 160)
+(defvar my/big-font-size 220) ;; Or however big you want it
+
+(defun my/set-font-size (size)
+  "Set the default font size to SIZE (in 1/10 pt)."
+  (interactive "nFont size (10x pt): ")
+  (set-face-attribute 'default nil :font my/default-font :height size))
+
+(defvar my/big-font-enabled nil)
+
+(defun my/toggle-big-font ()
+  "Toggle between default and big font sizes."
+  (interactive)
+  (setq my/big-font-enabled (not my/big-font-enabled))
+  (my/set-font-size (if my/big-font-enabled my/big-font-size my/default-font-size))
+  (message "Font size set to %s" (if my/big-font-enabled "BIG" "normal")))
+
+#+end_src
+
+#+RESULTS:
+: my/toggle-big-font
+
 *** Zooming In/Out
 You can use the bindings C-+ C-- for zooming in/out. You can also use CTRL plus the mouse wheel for zooming in/out.
 #+begin_src emacs-lisp
@@ -433,43 +448,42 @@ Replace the default modeline with a prettier more useful.
 ** gptel
 gptel install and setup
 #+begin_src emacs-lisp
-        (use-package gptel
-          :ensure t
-          :config
-          (setq gptel-api-key #'(lambda () (getenv "OPENROUTER_API_KEY")))
+    (use-package gptel
+      :ensure t
+      :config
+      (setq gptel-api-key #'(lambda () (getenv "OPENROUTER_API_KEY")))
 
-          (setq gptel-backend
-                (gptel-make-openai
-                 "OpenRouter"
-                 :host "openrouter.ai"
-                 :endpoint "/api/v1/chat/completions"
-                 :stream t
-                 :key gptel-api-key
-                 :models '(google/gemini-2.0-flash-001
-        				   google/gemini-2.5-flash-preview-05-20
-                           ;; other models optional
-                           )))
+      (setq gptel-backend
+            (gptel-make-openai
+             "OpenRouter"
+             :host "openrouter.ai"
+             :endpoint "/api/v1/chat/completions"
+             :stream t
+             :key gptel-api-key
+             :models '(google/gemini-2.0-flash-001
+    				   google/gemini-2.5-flash-preview-05-20
+                       ;; other models optional
+                       )))
 
-          (setq gptel-default-backend gptel-backend
-                gptel-model 'google/gemini-2.0-flash-001
-                gptel-default-mode 'org-mode)
+      (setq gptel-default-backend gptel-backend
+            gptel-model 'google/gemini-2.0-flash-001
+            gptel-default-mode 'org-mode)
 
-          (add-hook 'gptel-post-response-functions 'gptel-end-of-response)
+      (add-hook 'gptel-post-response-functions 'gptel-end-of-response)
 
-          (require 'gptel-integrations)
-          (setq mcp-hub-servers nil)
-          (setq mcp-hub-servers 
-    '(("github" . (:command "docker"
-    ))))
+      (require 'gptel-integrations)
+      (setq mcp-hub-servers nil)
+      (setq mcp-hub-servers 
+    		'(("github" . (:command "docker"
+    								))))
 
-          (setq github-mcp-key #'(lambda () (getenv "GITHUB_PERSONAL_ACCESS_TOKEN")))
-    	  (setq mcp-hub-servers 
-    			'(("github" . (:command "docker"
-    									:args ("run" "--rm" "-i" "-e" "GITHUB_PERSONAL_ACCESS_TOKEN" "ghcr.io/github/github-mcp-server") 
-    									:env (:GITHUB_PERSONAL_ACCESS_TOKEN github-mcp-key)))))
+      (setq mcp-hub-servers 
+    		`(("github" . (:command "docker"
+    								:args ("run" "--rm" "-i" "-e" "GITHUB_PERSONAL_ACCESS_TOKEN" "ghcr.io/github/github-mcp-server") 
+    								:env (:GITHUB_PERSONAL_ACCESS_TOKEN ,(getenv "GITHUB_MCP_PAT"))))))
 
-          (setf (alist-get 'org-mode gptel-prompt-prefix-alist) "@user\n")
-          (setf (alist-get 'org-mode gptel-response-prefix-alist) "@assistant\n"))
+      (setf (alist-get 'org-mode gptel-prompt-prefix-alist) "@user\n")
+      (setf (alist-get 'org-mode gptel-response-prefix-alist) "@assistant\n"))
 #+end_src
 
 #+RESULTS:
@@ -514,18 +528,51 @@ Project interaction library for Emacs.
     ;; Use Bookmarks for smaller, not standard projects
 #+end_src
 
-** Lsp-brigde
+** Company
 #+begin_src emacs-lisp
-    (add-to-list 'load-path "~/.config/emacs-extra/lsp-bridge/")
-
-    (require 'yasnippet)
-    (yas-global-mode 1)
-
-    (require 'lsp-bridge)
-    (global-lsp-bridge-mode)
+(use-package company
+  :hook (lsp-mode . company-mode)
+  :config
+  (setq company-minimum-prefix-length 1
+        company-idle-delay 0.0))  ;; show completions immediately
 #+end_src
 
 #+RESULTS:
+| company-mode | dap-tooltip-update-mouse-motions-if-enabled | lsp-enable-which-key-integration |
+
+** Lsp-mode 
+#+begin_src emacs-lisp
+    (use-package lsp-mode
+      :init
+      ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
+      (setq lsp-keymap-prefix "C-c l")
+      :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
+             (typescript-mode . lsp)
+             ;; if you want which-key integration
+             (lsp-mode . lsp-enable-which-key-integration))
+      :commands (lsp lsp-deferred))
+
+    ;; optionally
+    (use-package lsp-ui :commands lsp-ui-mode)
+    ;; if you are helm user
+    (use-package helm-lsp :commands helm-lsp-workspace-symbol)
+    ;; if you are ivy user
+    (use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
+    (use-package lsp-treemacs :commands lsp-treemacs-errors-list)
+
+    ;; optionally if you want to use debugger
+    (use-package dap-mode)
+    ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
+
+    ;; optional if you want which-key integration
+    (use-package which-key
+        :config
+        (which-key-mode))
+
+#+end_src
+
+#+RESULTS:
+: t
 
 ** Evil commenter
 #+begin_src emacs-lisp
@@ -577,26 +624,17 @@ Use SPC-tab to uncomment the lines.
 # #+end_src
 *** Typescript mode
 #+begin_src emacs-lisp
-    (use-package typescript-mode :ensure t)
+    (use-package typescript-mode 
+      :ensure t
+      :hook (typescript-mode . lsp-deferred)
+    )
 #+end_src
+
+#+RESULTS:
+| typescript-mode |
 
 *** Typescript lsp 
 #+begin_src emacs-lisp
-    ;;     (setq lsp-bridge-multi-lang-server-mode-list
-    ;;           '((typescript-mode . "typescript-language-server")
-    ;;             (typescript-ts-mode . "typescript-language-server")
-    ;;             (typescript-tsx-mode . "typescript-language-server")))
-
-    ;;       (add-to-list 'lsp-bridge-default-mode-hooks
-    ;;                    '(typescript-tsx-mode . "tailwindcss-language-server"))
-    (setq lsp-bridge-multi-lang-server-extension-list
-      '(
-        (("ts" )   . "typescript_eslint")
-        (("tsx" )   . "typescriptreact_eslint_tailwindcss")
-        (("jsx" )   . "javascriptreact_eslint_tailwindcss")
-        (("html") . "html_tailwindcss")
-        )
-      )
 #+end_src
 *** Org Mode
 Org mode is one of the things that emacs is loved for.

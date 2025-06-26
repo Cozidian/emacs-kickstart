@@ -127,22 +127,11 @@
 
   (start/leader-keys
     "t" '(:ignore t :wk "Toggle")
+	"t b" '(my/toggle-big-font :wk "Toggle big font")
     "t t" '(visual-line-mode :wk "Toggle truncated lines (wrap)")
     "t l" '(display-line-numbers-mode :wk "Toggle line numbers"))
   (start/leader-keys
-	"c" '(:ignore t :wk "Code")
-	"c a" '((lambda () (interactive) (lsp-bridge-code-action)) :wk "Code actions")
-	"c s" '(lsp-bridge-workspace-list-symbols :wk "List symbols")
-	"c x" '(lsp-bridge-diagnostic-list :wk "List diagnostic"))
-  (general-define-key
-   :states 'normal
-   :keymaps 'lsp-bridge-mode-map
-   "gd" 'lsp-bridge-find-def
-   "gD" 'lsp-bridge-find-def-other-window
-   "gr" 'lsp-bridge-find-references
-   "gi" 'lsp-bridge-find-impl
-   "K"  'lsp-bridge-popup-documentation
-   "gR" 'lsp-bridge-rename)
+	"c" '(:ignore t :wk "Code"))
   (general-define-key
    :states '(normal visual)
    :keymaps 'override
@@ -237,6 +226,24 @@
 ;;(add-to-list 'default-frame-alist '(font . "JetBrains Mono")) ;; Set your favorite font
 (setq-default line-spacing 0.12)
 
+(defvar my/default-font "JetBrains Mono")
+(defvar my/default-font-size 160)
+(defvar my/big-font-size 220) ;; Or however big you want it
+
+(defun my/set-font-size (size)
+  "Set the default font size to SIZE (in 1/10 pt)."
+  (interactive "nFont size (10x pt): ")
+  (set-face-attribute 'default nil :font my/default-font :height size))
+
+(defvar my/big-font-enabled nil)
+
+(defun my/toggle-big-font ()
+  "Toggle between default and big font sizes."
+  (interactive)
+  (setq my/big-font-enabled (not my/big-font-enabled))
+  (my/set-font-size (if my/big-font-enabled my/big-font-size my/default-font-size))
+  (message "Font size set to %s" (if my/big-font-enabled "BIG" "normal")))
+
 (use-package emacs
   :bind
   ("C-+" . text-scale-increase)
@@ -261,42 +268,41 @@
   :hook (after-init . mcp-hub-start-all-server))
 
 (use-package gptel
-      :ensure t
-      :config
-      (setq gptel-api-key #'(lambda () (getenv "OPENROUTER_API_KEY")))
+  :ensure t
+  :config
+  (setq gptel-api-key #'(lambda () (getenv "OPENROUTER_API_KEY")))
 
-      (setq gptel-backend
-            (gptel-make-openai
-             "OpenRouter"
-             :host "openrouter.ai"
-             :endpoint "/api/v1/chat/completions"
-             :stream t
-             :key gptel-api-key
-             :models '(google/gemini-2.0-flash-001
-    				   google/gemini-2.5-flash-preview-05-20
-                       ;; other models optional
-                       )))
+  (setq gptel-backend
+        (gptel-make-openai
+         "OpenRouter"
+         :host "openrouter.ai"
+         :endpoint "/api/v1/chat/completions"
+         :stream t
+         :key gptel-api-key
+         :models '(google/gemini-2.0-flash-001
+				   google/gemini-2.5-flash-preview-05-20
+                   ;; other models optional
+                   )))
 
-      (setq gptel-default-backend gptel-backend
-            gptel-model 'google/gemini-2.0-flash-001
-            gptel-default-mode 'org-mode)
+  (setq gptel-default-backend gptel-backend
+        gptel-model 'google/gemini-2.0-flash-001
+        gptel-default-mode 'org-mode)
 
-      (add-hook 'gptel-post-response-functions 'gptel-end-of-response)
+  (add-hook 'gptel-post-response-functions 'gptel-end-of-response)
 
-      (require 'gptel-integrations)
-      (setq mcp-hub-servers nil)
-      (setq mcp-hub-servers 
-'(("github" . (:command "docker"
-))))
+  (require 'gptel-integrations)
+  (setq mcp-hub-servers nil)
+  (setq mcp-hub-servers 
+		'(("github" . (:command "docker"
+								))))
 
-      (setq github-mcp-key #'(lambda () (getenv "GITHUB_PERSONAL_ACCESS_TOKEN")))
-	  (setq mcp-hub-servers 
-			'(("github" . (:command "docker"
-									:args ("run" "--rm" "-i" "-e" "GITHUB_PERSONAL_ACCESS_TOKEN" "ghcr.io/github/github-mcp-server") 
-									:env (:GITHUB_PERSONAL_ACCESS_TOKEN github-mcp-key)))))
+  (setq mcp-hub-servers 
+		`(("github" . (:command "docker"
+								:args ("run" "--rm" "-i" "-e" "GITHUB_PERSONAL_ACCESS_TOKEN" "ghcr.io/github/github-mcp-server") 
+								:env (:GITHUB_PERSONAL_ACCESS_TOKEN ,(getenv "GITHUB_MCP_PAT"))))))
 
-      (setf (alist-get 'org-mode gptel-prompt-prefix-alist) "@user\n")
-      (setf (alist-get 'org-mode gptel-response-prefix-alist) "@assistant\n"))
+  (setf (alist-get 'org-mode gptel-prompt-prefix-alist) "@user\n")
+  (setf (alist-get 'org-mode gptel-response-prefix-alist) "@assistant\n"))
 
 (use-package aidermacs
   :bind (("C-c a" . aidermacs-transient-menu))
@@ -321,13 +327,38 @@
   (projectile-project-search-path '("~/projects/" "~/work/" ("~/github" . 1)))) ;; . 1 means only search the first subdirectory level for projects
 ;; Use Bookmarks for smaller, not standard projects
 
-(add-to-list 'load-path "~/.config/emacs-extra/lsp-bridge/")
+(use-package company
+  :hook (lsp-mode . company-mode)
+  :config
+  (setq company-minimum-prefix-length 1
+        company-idle-delay 0.0))  ;; show completions immediately
 
-(require 'yasnippet)
-(yas-global-mode 1)
+(use-package lsp-mode
+  :init
+  ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
+  (setq lsp-keymap-prefix "C-c l")
+  :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
+         (typescript-mode . lsp)
+         ;; if you want which-key integration
+         (lsp-mode . lsp-enable-which-key-integration))
+  :commands (lsp lsp-deferred))
 
-(require 'lsp-bridge)
-(global-lsp-bridge-mode)
+;; optionally
+(use-package lsp-ui :commands lsp-ui-mode)
+;; if you are helm user
+(use-package helm-lsp :commands helm-lsp-workspace-symbol)
+;; if you are ivy user
+(use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
+(use-package lsp-treemacs :commands lsp-treemacs-errors-list)
+
+;; optionally if you want to use debugger
+(use-package dap-mode)
+;; (use-package dap-LANGUAGE) to load the dap adapter for your language
+
+;; optional if you want which-key integration
+(use-package which-key
+    :config
+    (which-key-mode))
 
 (use-package evil-nerd-commenter
   :ensure t)
@@ -349,23 +380,12 @@
   (global-treesit-auto-mode)
   (treesit-auto-add-to-auto-mode-alist 'all))
 
-(use-package typescript-mode :ensure t)
+(use-package typescript-mode 
+  :ensure t
+  :hook (typescript-mode . lsp-deferred)
+)
 
-;;     (setq lsp-bridge-multi-lang-server-mode-list
-;;           '((typescript-mode . "typescript-language-server")
-;;             (typescript-ts-mode . "typescript-language-server")
-;;             (typescript-tsx-mode . "typescript-language-server")))
 
-;;       (add-to-list 'lsp-bridge-default-mode-hooks
-;;                    '(typescript-tsx-mode . "tailwindcss-language-server"))
-(setq lsp-bridge-multi-lang-server-extension-list
-  '(
-    (("ts" )   . "typescript_eslint")
-    (("tsx" )   . "typescriptreact_eslint_tailwindcss")
-    (("jsx" )   . "javascriptreact_eslint_tailwindcss")
-    (("html") . "html_tailwindcss")
-    )
-  )
 
 (use-package org
   :ensure nil
