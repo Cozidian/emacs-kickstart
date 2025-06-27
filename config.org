@@ -26,6 +26,7 @@
   - [[#mcp][mcp]]
   - [[#gptel][gptel]]
   - [[#aidermacs][Aidermacs]]
+  - [[#copilot][copilot]]
 - [[#development][Development]]
   - [[#vterm][Vterm]]
   - [[#projectile][Projectile]]
@@ -521,6 +522,22 @@ gptel install and setup
 #+RESULTS:
 : aidermacs-transient-menu
 
+** copilot
+#+begin_src emacs-lisp
+    (use-package copilot
+      :ensure t
+      :vc (:url "https://github.com/copilot-emacs/copilot.el"
+                :rev :newest
+                :branch "main")
+      :config
+      (copilot-mode 1))
+    (define-key copilot-completion-map (kbd "<tab>") 'copilot-accept-completion)
+    (define-key copilot-completion-map (kbd "TAB") 'copilot-accept-completion)
+#+end_src
+
+#+RESULTS:
+: copilot-accept-completion
+
 * Development
 ** Vterm
 #+begin_src emacs-lisp
@@ -557,39 +574,39 @@ Project interaction library for Emacs.
 
 ** Lsp-mode 
 #+begin_src emacs-lisp
-        (use-package lsp-mode
-          :init
-          ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
-          (setq lsp-keymap-prefix "C-c l")
-          :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
-                 (typescript-mode . lsp)
-                 (emacs-lisp-mode . lsp)
-                 ;; if you want which-key integration
-                 (lsp-mode . lsp-enable-which-key-integration))
-          :commands (lsp lsp-deferred))
+    (use-package lsp-mode
+      :init
+      ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
+      (setq lsp-keymap-prefix "C-c l")
+      :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
+             (typescript-mode . lsp)
+             (emacs-lisp-mode . lsp)
+             ;; if you want which-key integration
+             (lsp-mode . lsp-enable-which-key-integration))
+      :commands (lsp lsp-deferred))
 
-        ;; optionally
-        (use-package lsp-ui :commands lsp-ui-mode)
-        ;; if you are helm user
-        (use-package helm-lsp :commands helm-lsp-workspace-symbol)
-        ;; if you are ivy user
-        (use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
-        (use-package lsp-treemacs :commands lsp-treemacs-errors-list)
+    ;; optionally
+    (use-package lsp-ui :commands lsp-ui-mode)
+    ;; if you are helm user
+    (use-package helm-lsp :commands helm-lsp-workspace-symbol)
+    ;; if you are ivy user
+    (use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
+    (use-package lsp-treemacs :commands lsp-treemacs-errors-list)
 
-        ;; optionally if you want to use debugger
-        (use-package dap-mode)
-        ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
+    ;; optionally if you want to use debugger
+    (use-package dap-mode)
+    ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
 
-        ;; optional if you want which-key integration
+    ;; optional if you want which-key integration
     (use-package which-key
-            :config
-            (which-key-mode))
+      :config
+      (which-key-mode))
 
-(add-hook 'org-src-mode-hook
-          (lambda ()
-            ;; Only try to start LSP in the source edit buffer if it's Emacs Lisp
-            (when (derived-mode-p 'emacs-lisp-mode)
-              (lsp-deferred))))
+    (add-hook 'org-src-mode-hook
+              (lambda ()
+                ;; Only try to start LSP in the source edit buffer if it's Emacs Lisp
+                (when (derived-mode-p 'emacs-lisp-mode)
+                  (lsp-deferred))))
 #+end_src
 
 #+RESULTS:
@@ -648,11 +665,14 @@ Use SPC-tab to uncomment the lines.
     (use-package typescript-mode 
       :ensure t
       :hook (typescript-mode . lsp-deferred)
-    )
+      )
+
+    (add-hook 'tsx-ts-mode-hook #'lsp-deferred)
+
 #+end_src
 
 #+RESULTS:
-| typescript-mode |
+| lsp-deferred |
 
 *** Typescript lsp 
 #+begin_src emacs-lisp
@@ -768,30 +788,33 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
       :ensure nil
       :after org)
 #+end_src
-*** Denote
+*** Org-roam
 #+begin_src emacs-lisp
-(use-package denote
-  :ensure t
-  :hook (dired-mode . denote-dired-mode)
-  :bind
-  (("C-c n n" . denote)
-   ("C-c n r" . denote-rename-file)
-   ("C-c n l" . denote-link)
-   ("C-c n b" . denote-backlinks)
-   ("C-c n d" . denote-dired)
-   ("C-c n g" . denote-grep))
-  :config
-  (setq denote-directory (expand-file-name "~/notes/"))
+    (use-package org-roam
+    :ensure t
+    :custom
+    (org-roam-directory (file-truename "~/org/roam/"))
+    :bind (("C-c n l" . org-roam-buffer-toggle)
+           ("C-c n f" . org-roam-node-find)
+           ("C-c n g" . org-roam-graph)
+           ("C-c n i" . org-roam-node-insert)
+           ("C-c n c" . org-roam-capture)
+           ;; Dailies
+           ("C-c n j" . org-roam-dailies-capture-today))
+    :config
+    ;; If you're using a vertical completion framework, you might want a more informative completion interface
+    (setq org-roam-node-display-template (concat "${title:*} " (propertize "${tags:10}" 'face 'org-tag)))
+    (org-roam-db-autosync-mode)
+    ;; If using org-roam-protocol
+    (require 'org-roam-protocol))
+;; Create the .org-id-locations file if missing
+(unless (file-exists-p org-id-locations-file)
+  (org-id-update-id-locations (directory-files-recursively org-roam-directory "\\.org$")))
 
-  ;; Automatically rename Denote buffers when opening them so that
-  ;; instead of their long file name they have, for example, a literal
-  ;; "[D]" followed by the file's title.  Read the doc string of
-  ;; `denote-rename-buffer-format' for how to modify this.
-  (denote-rename-buffer-mode 1))
 #+end_src
 
 #+RESULTS:
-: denote-grep
+: #s(hash-table test equal data ("3A7FD301-AF64-4579-A36B-16020EBB5A4B" "~/org/roam/daily/2025-06-27.org" "049c61ce-435c-467a-bcdb-a34adffed91d" "~/org/roam/daily/2025-05-30.org" "7ee49523-0b11-4cec-b635-194ac3463575" "~/org/org-roam/20250610201321-elkem.org" "5ab7efae-d56b-48c3-97af-8035ef42994f" "~/org/org-roam/20250610201218-projects.org" "37b0d3b4-83ee-4d86-8ad8-4a6a7a8e971e" "~/org/org-roam/20250530210145-something.org" "0b6e81f1-9c0a-483a-aca4-009f20522b77" "~/org/org-roam/20250530205509-test.org" "dd77fdb9-0cf3-40ed-87ea-c7257a0a08fc" "~/org/org-roam/daily/2025-05-30.org"))
 
 ** Terminal
 *** Eat

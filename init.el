@@ -330,6 +330,16 @@
   (aidermacs-default-chat-mode 'architect)
   (aidermacs-default-model "sonnet"))
 
+(use-package copilot
+  :ensure t
+  :vc (:url "https://github.com/copilot-emacs/copilot.el"
+            :rev :newest
+            :branch "main")
+  :config
+  (copilot-mode 1))
+(define-key copilot-completion-map (kbd "<tab>") 'copilot-accept-completion)
+(define-key copilot-completion-map (kbd "TAB") 'copilot-accept-completion)
+
 (use-package vterm
     :ensure t)
 
@@ -349,32 +359,32 @@
         company-idle-delay 0.0))  ;; show completions immediately
 
 (use-package lsp-mode
-          :init
-          ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
-          (setq lsp-keymap-prefix "C-c l")
-          :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
-                 (typescript-mode . lsp)
-                 (emacs-lisp-mode . lsp)
-                 ;; if you want which-key integration
-                 (lsp-mode . lsp-enable-which-key-integration))
-          :commands (lsp lsp-deferred))
+  :init
+  ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
+  (setq lsp-keymap-prefix "C-c l")
+  :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
+         (typescript-mode . lsp)
+         (emacs-lisp-mode . lsp)
+         ;; if you want which-key integration
+         (lsp-mode . lsp-enable-which-key-integration))
+  :commands (lsp lsp-deferred))
 
-        ;; optionally
-        (use-package lsp-ui :commands lsp-ui-mode)
-        ;; if you are helm user
-        (use-package helm-lsp :commands helm-lsp-workspace-symbol)
-        ;; if you are ivy user
-        (use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
-        (use-package lsp-treemacs :commands lsp-treemacs-errors-list)
+;; optionally
+(use-package lsp-ui :commands lsp-ui-mode)
+;; if you are helm user
+(use-package helm-lsp :commands helm-lsp-workspace-symbol)
+;; if you are ivy user
+(use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
+(use-package lsp-treemacs :commands lsp-treemacs-errors-list)
 
-        ;; optionally if you want to use debugger
-        (use-package dap-mode)
-        ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
+;; optionally if you want to use debugger
+(use-package dap-mode)
+;; (use-package dap-LANGUAGE) to load the dap adapter for your language
 
-        ;; optional if you want which-key integration
-    (use-package which-key
-            :config
-            (which-key-mode))
+;; optional if you want which-key integration
+(use-package which-key
+  :config
+  (which-key-mode))
 
 (add-hook 'org-src-mode-hook
           (lambda ()
@@ -405,7 +415,9 @@
 (use-package typescript-mode 
   :ensure t
   :hook (typescript-mode . lsp-deferred)
-)
+  )
+
+(add-hook 'tsx-ts-mode-hook #'lsp-deferred)
 
 
 
@@ -485,24 +497,26 @@
   :ensure nil
   :after org)
 
-(use-package denote
-  :ensure t
-  :hook (dired-mode . denote-dired-mode)
-  :bind
-  (("C-c n n" . denote)
-   ("C-c n r" . denote-rename-file)
-   ("C-c n l" . denote-link)
-   ("C-c n b" . denote-backlinks)
-   ("C-c n d" . denote-dired)
-   ("C-c n g" . denote-grep))
-  :config
-  (setq denote-directory (expand-file-name "~/notes/"))
-
-  ;; Automatically rename Denote buffers when opening them so that
-  ;; instead of their long file name they have, for example, a literal
-  ;; "[D]" followed by the file's title.  Read the doc string of
-  ;; `denote-rename-buffer-format' for how to modify this.
-  (denote-rename-buffer-mode 1))
+(use-package org-roam
+    :ensure t
+    :custom
+    (org-roam-directory (file-truename "~/org/roam/"))
+    :bind (("C-c n l" . org-roam-buffer-toggle)
+           ("C-c n f" . org-roam-node-find)
+           ("C-c n g" . org-roam-graph)
+           ("C-c n i" . org-roam-node-insert)
+           ("C-c n c" . org-roam-capture)
+           ;; Dailies
+           ("C-c n j" . org-roam-dailies-capture-today))
+    :config
+    ;; If you're using a vertical completion framework, you might want a more informative completion interface
+    (setq org-roam-node-display-template (concat "${title:*} " (propertize "${tags:10}" 'face 'org-tag)))
+    (org-roam-db-autosync-mode)
+    ;; If using org-roam-protocol
+    (require 'org-roam-protocol))
+;; Create the .org-id-locations file if missing
+(unless (file-exists-p org-id-locations-file)
+  (org-id-update-id-locations (directory-files-recursively org-roam-directory "\\.org$")))
 
 (use-package eat
   :hook ('eshell-load-hook #'eat-eshell-mode))
