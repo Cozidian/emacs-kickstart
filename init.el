@@ -156,6 +156,13 @@
 (setq mac-right-option-modifier 'none)
 (setq ns-right-option-modifier 'none)
 
+(use-package avy
+  :ensure t
+  :bind
+  (("M-s"     . avy-goto-char)
+   ("M-g g"   . avy-goto-line)
+   ("M-g M-g" . avy-goto-line)))
+
 (use-package emacs
   :custom
   (menu-bar-mode nil)         ;; Disable the menu bar
@@ -322,13 +329,16 @@
 (use-package aidermacs
   :bind (("C-c a" . aidermacs-transient-menu))
   :config
-  ; defun my-get-openrouter-api-key yourself elsewhere for security reasons
+										; defun my-get-openrouter-api-key yourself elsewhere for security reasons
 
   (setenv "OPENROUTER_API_KEY" (getenv "OPENROUTER_API_KEY"))
   :custom
-  ; See the Configuration section below
-  (aidermacs-default-chat-mode 'architect)
+										; See the Configuration section below
+  (aidermacs-default-chat-mode 'ask)
   (aidermacs-default-model "sonnet"))
+
+(setq aidermacs-global-read-only-files '("~/.aider/AI_RULES.md"))
+(setq aidermacs-project-read-only-files '("README.md"))
 
 (use-package copilot
   :ensure t
@@ -352,45 +362,58 @@
   (projectile-project-search-path '("~/projects/" "~/work/" ("~/github" . 1)))) ;; . 1 means only search the first subdirectory level for projects
 ;; Use Bookmarks for smaller, not standard projects
 
-(use-package company
-  :hook (lsp-mode . company-mode)
-  :config
-  (setq company-minimum-prefix-length 1
-        company-idle-delay 0.0))  ;; show completions immediately
+(setq ediff-window-setup-function 'ediff-setup-windows-plain)
+
+;; (use-package company
+;;   :hook (lsp-mode . company-mode)
+;;   :config
+;;   (setq company-minimum-prefix-length 1
+;;         company-idle-delay 0.0))  ;; show completions immediately
 
 (use-package lsp-mode
   :init
-  ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
-  (setq lsp-keymap-prefix "C-c l")
-  :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
-         (typescript-mode . lsp)
-         (emacs-lisp-mode . lsp)
-         ;; if you want which-key integration
+  (setq lsp-keymap-prefix "SPC c")
+  :hook ((typescript-mode . lsp-deferred)
+         (tsx-ts-mode . lsp-deferred)
+         (typescript-ts-mode . lsp-deferred)
+         (js-mode . lsp-deferred)
+         (js-ts-mode . lsp-deferred)
          (lsp-mode . lsp-enable-which-key-integration))
-  :commands (lsp lsp-deferred))
+  :commands (lsp lsp-deferred)
+  :custom
+  (lsp-ui-doc-enable t)
+  (lsp-completion-provider :none))
 
-;; optionally
-(use-package lsp-ui :commands lsp-ui-mode)
-;; if you are helm user
-(use-package helm-lsp :commands helm-lsp-workspace-symbol)
-;; if you are ivy user
-(use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
-(use-package lsp-treemacs :commands lsp-treemacs-errors-list)
+(use-package lsp-ui
+  :commands lsp-ui-mode)
 
-;; optionally if you want to use debugger
-(use-package dap-mode)
-;; (use-package dap-LANGUAGE) to load the dap adapter for your language
+(use-package lsp-ivy
+  :commands lsp-ivy-workspace-symbol)
 
-;; optional if you want which-key integration
+(use-package lsp-treemacs
+  :commands lsp-treemacs-errors-list)
+
 (use-package which-key
   :config
   (which-key-mode))
 
-(add-hook 'org-src-mode-hook
-          (lambda ()
-            ;; Only try to start LSP in the source edit buffer if it's Emacs Lisp
-            (when (derived-mode-p 'emacs-lisp-mode)
-              (lsp-deferred))))
+;; Disable other TS/JS language servers to avoid conflicts
+(setq lsp-disabled-clients '(ts-ls deno-ls))
+
+;; Register vtsls as the preferred LSP for TS/JS
+(with-eval-after-load 'lsp-mode
+  (lsp-register-client
+   (make-lsp-client
+    :new-connection (lsp-stdio-connection '("vtsls" "--stdio"))
+    :major-modes '(typescript-mode tsx-ts-mode typescript-ts-mode js-mode js-ts-mode)
+    :server-id 'vtsls
+    :priority 3
+    :initialized-fn (lambda (workspace)
+                      (with-lsp-workspace workspace
+                        (lsp--set-configuration
+                         `(:typescript (:format (:enable t))
+                           :javascript (:format (:enable t))
+                           :vtsls (:experimental (:completion (:enableServerSideFuzzyMatch t))))))))))
 
 (use-package evil-nerd-commenter
   :ensure t)
@@ -416,7 +439,7 @@
   :ensure t
   :hook (typescript-mode . lsp-deferred)
   )
-
+(add-hook 'typescript-ts-mode-hook #'lsp-deferred)
 (add-hook 'tsx-ts-mode-hook #'lsp-deferred)
 
 
@@ -546,6 +569,60 @@
          (magit-post-refresh . diff-hl-magit-post-refresh))
   :init (global-diff-hl-mode))
 
+(use-package corfu
+  ;; Optional customizations
+  :custom
+  (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
+  (corfu-auto t)                 ;; Enable auto completion
+  (corfu-auto-prefix 2)          ;; Minimum length of prefix for auto completion.
+  (corfu-popupinfo-mode t)       ;; Enable popup information
+  (corfu-popupinfo-delay 0.5)    ;; Lower popupinfo delay to 0.5 seconds from 2 seconds
+  (corfu-separator ?\s)          ;; Orderless field separator, Use M-SPC to enter separator
+  ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
+  ;; (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
+  ;; (corfu-preview-current nil)    ;; Disable current candidate preview
+  ;; (corfu-preselect 'prompt)      ;; Preselect the prompt
+  ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
+  ;; (corfu-scroll-margin 5)        ;; Use scroll margin
+  (completion-ignore-case t)
+  ;; Enable indentation+completion using the TAB key.
+  ;; `completion-at-point' is often bound to M-TAB.
+  (tab-always-indent 'complete)
+  (corfu-preview-current nil) ;; Don't insert completion without confirmation
+  ;; Recommended: Enable Corfu globally.  This is recommended since Dabbrev can
+  ;; be used globally (M-/).  See also the customization variable
+  ;; `global-corfu-modes' to exclude certain modes.
+  :init
+  (global-corfu-mode))
+
+(use-package nerd-icons-corfu
+  :after corfu
+  :init (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
+
+(use-package cape
+  :after corfu
+  :init
+  ;; Add to the global default value of `completion-at-point-functions' which is
+  ;; used by `completion-at-point'.  The order of the functions matters, the
+  ;; first function returning a result wins.  Note that the list of buffer-local
+  ;; completion functions takes precedence over the global list.
+  ;; The functions that are added later will be the first in the list
+
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev) ;; Complete word from current buffers
+  (add-to-list 'completion-at-point-functions #'cape-dict) ;; Dictionary completion
+  (add-to-list 'completion-at-point-functions #'cape-file) ;; Path completion
+  (add-to-list 'completion-at-point-functions #'cape-elisp-block) ;; Complete elisp in Org or Markdown mode
+  (add-to-list 'completion-at-point-functions #'cape-keyword) ;; Keyword/Snipet completion
+
+  ;;(add-to-list 'completion-at-point-functions #'cape-abbrev) ;; Complete abbreviation
+  ;;(add-to-list 'completion-at-point-functions #'cape-history) ;; Complete from Eshell, Comint or minibuffer history
+  ;;(add-to-list 'completion-at-point-functions #'cape-line) ;; Complete entire line from current buffer
+  ;;(add-to-list 'completion-at-point-functions #'cape-elisp-symbol) ;; Complete Elisp symbol
+  ;;(add-to-list 'completion-at-point-functions #'cape-tex) ;; Complete Unicode char from TeX command, e.g. \hbar
+  ;;(add-to-list 'completion-at-point-functions #'cape-sgml) ;; Complete Unicode char from SGML entity, e.g., &alpha
+  ;;(add-to-list 'completion-at-point-functions #'cape-rfc1345) ;; Complete Unicode char using RFC 1345 mnemonics
+  )
+
 (use-package orderless
   :custom
   (completion-styles '(orderless basic))
@@ -639,6 +716,21 @@
   (which-key-idle-delay 0.8)       ;; Set the time delay (in seconds) for the which-key popup to appear
   (which-key-max-description-length 25)
   (which-key-allow-imprecise-window-fit nil)) ;; Fixes which-key window slipping out in Emacs Daemon
+
+(use-package elfeed
+  :ensure t
+  :bind (("C-x w" . elfeed))
+  :custom
+  (elfeed-feeds
+   '(
+     ;; Dev & Emacs
+     ("https://planet.emacslife.com/atom.xml" emacs)
+     ("https://nullprogram.com/feed/" programming)
+     ("https://xenodium.com/rss.xml" emacs personal)
+     ;; Tech/News
+     ("https://lobste.rs/rss" tech)
+     ("https://hnrss.org/frontpage" hackernews)
+     )))
 
 ;; Make gc pauses faster by decreasing the threshold.
 (setq gc-cons-threshold (* 2 1000 1000))

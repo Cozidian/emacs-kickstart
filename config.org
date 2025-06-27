@@ -16,6 +16,7 @@
   - [[#set-env-paths][Set env paths]]
   - [[#evil-mode][Evil Mode]]
   - [[#general-keybindings][General Keybindings]]
+  - [[#avy][Avy]]
   - [[#good-defaults][Good Defaults]]
 - [[#appearance][Appearance]]
   - [[#set-theme][Set Theme]]
@@ -30,6 +31,7 @@
 - [[#development][Development]]
   - [[#vterm][Vterm]]
   - [[#projectile][Projectile]]
+  - [[#ediff][ediff]]
   - [[#company][Company]]
   - [[#lsp-mode][Lsp-mode]]
   - [[#evil-commenter][Evil commenter]]
@@ -44,12 +46,15 @@
 - [[#other-packages][Other Packages]]
   - [[#nerd-icons][Nerd Icons]]
   - [[#git][Git]]
+  - [[#corfu][Corfu]]
+  - [[#cape][Cape]]
   - [[#orderless][Orderless]]
   - [[#vertico-and-marginalia][Vertico and Marginalia]]
   - [[#consult][Consult]]
   - [[#diminish][Diminish]]
   - [[#rainbow-delimiters][Rainbow Delimiters]]
   - [[#which-key][Which-Key]]
+  - [[#elfeed][Elfeed]]
 - [[#runtime-performance][Runtime Performance]]
 
 * Introduction
@@ -290,6 +295,19 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
 : none
 
 
+** Avy
+#+begin_src emacs-lisp
+(use-package avy
+  :ensure t
+  :bind
+  (("M-s"     . avy-goto-char)
+   ("M-g g"   . avy-goto-line)
+   ("M-g M-g" . avy-goto-line)))
+#+end_src
+
+#+RESULTS:
+: avy-goto-line
+
 ** Good Defaults
 #+begin_src emacs-lisp
     (use-package emacs
@@ -341,6 +359,9 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
               nil nil t)
       )
 #+end_src
+
+#+RESULTS:
+: keyboard-escape-quit
 
 * Appearance
 ** Set Theme
@@ -510,17 +531,20 @@ gptel install and setup
     (use-package aidermacs
       :bind (("C-c a" . aidermacs-transient-menu))
       :config
-      ; defun my-get-openrouter-api-key yourself elsewhere for security reasons
+    										; defun my-get-openrouter-api-key yourself elsewhere for security reasons
 
       (setenv "OPENROUTER_API_KEY" (getenv "OPENROUTER_API_KEY"))
       :custom
-      ; See the Configuration section below
-      (aidermacs-default-chat-mode 'architect)
+    										; See the Configuration section below
+      (aidermacs-default-chat-mode 'ask)
       (aidermacs-default-model "sonnet"))
+
+    (setq aidermacs-global-read-only-files '("~/.aider/AI_RULES.md"))
+    (setq aidermacs-project-read-only-files '("README.md"))
 #+end_src
 
 #+RESULTS:
-: aidermacs-transient-menu
+| README.md |
 
 ** copilot
 #+begin_src emacs-lisp
@@ -560,13 +584,21 @@ Project interaction library for Emacs.
     ;; Use Bookmarks for smaller, not standard projects
 #+end_src
 
+** ediff
+#+begin_src emacs-lisp
+    (setq ediff-window-setup-function 'ediff-setup-windows-plain)
+#+end_src
+
+#+RESULTS:
+: ediff-setup-windows-plain
+
 ** Company
 #+begin_src emacs-lisp
-(use-package company
-  :hook (lsp-mode . company-mode)
-  :config
-  (setq company-minimum-prefix-length 1
-        company-idle-delay 0.0))  ;; show completions immediately
+;; (use-package company
+;;   :hook (lsp-mode . company-mode)
+;;   :config
+;;   (setq company-minimum-prefix-length 1
+;;         company-idle-delay 0.0))  ;; show completions immediately
 #+end_src
 
 #+RESULTS:
@@ -574,43 +606,53 @@ Project interaction library for Emacs.
 
 ** Lsp-mode 
 #+begin_src emacs-lisp
-    (use-package lsp-mode
-      :init
-      ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
-      (setq lsp-keymap-prefix "C-c l")
-      :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
-             (typescript-mode . lsp)
-             (emacs-lisp-mode . lsp)
-             ;; if you want which-key integration
-             (lsp-mode . lsp-enable-which-key-integration))
-      :commands (lsp lsp-deferred))
+  (use-package lsp-mode
+    :init
+    (setq lsp-keymap-prefix "SPC c")
+    :hook ((typescript-mode . lsp-deferred)
+           (tsx-ts-mode . lsp-deferred)
+           (typescript-ts-mode . lsp-deferred)
+           (js-mode . lsp-deferred)
+           (js-ts-mode . lsp-deferred)
+           (lsp-mode . lsp-enable-which-key-integration))
+    :commands (lsp lsp-deferred)
+    :custom
+    (lsp-ui-doc-enable t)
+    (lsp-completion-provider :none))
 
-    ;; optionally
-    (use-package lsp-ui :commands lsp-ui-mode)
-    ;; if you are helm user
-    (use-package helm-lsp :commands helm-lsp-workspace-symbol)
-    ;; if you are ivy user
-    (use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
-    (use-package lsp-treemacs :commands lsp-treemacs-errors-list)
+  (use-package lsp-ui
+    :commands lsp-ui-mode)
 
-    ;; optionally if you want to use debugger
-    (use-package dap-mode)
-    ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
+  (use-package lsp-ivy
+    :commands lsp-ivy-workspace-symbol)
 
-    ;; optional if you want which-key integration
-    (use-package which-key
-      :config
-      (which-key-mode))
+  (use-package lsp-treemacs
+    :commands lsp-treemacs-errors-list)
 
-    (add-hook 'org-src-mode-hook
-              (lambda ()
-                ;; Only try to start LSP in the source edit buffer if it's Emacs Lisp
-                (when (derived-mode-p 'emacs-lisp-mode)
-                  (lsp-deferred))))
+  (use-package which-key
+    :config
+    (which-key-mode))
+
+  ;; Disable other TS/JS language servers to avoid conflicts
+  (setq lsp-disabled-clients '(ts-ls deno-ls))
+
+  ;; Register vtsls as the preferred LSP for TS/JS
+  (with-eval-after-load 'lsp-mode
+    (lsp-register-client
+     (make-lsp-client
+      :new-connection (lsp-stdio-connection '("vtsls" "--stdio"))
+      :major-modes '(typescript-mode tsx-ts-mode typescript-ts-mode js-mode js-ts-mode)
+      :server-id 'vtsls
+      :priority 3
+      :initialized-fn (lambda (workspace)
+                        (with-lsp-workspace workspace
+                          (lsp--set-configuration
+                           `(:typescript (:format (:enable t))
+                             :javascript (:format (:enable t))
+                             :vtsls (:experimental (:completion (:enableServerSideFuzzyMatch t))))))))))
 #+end_src
 
 #+RESULTS:
-| #[nil ((when (derived-mode-p 'emacs-lisp-mode) (lsp-deferred))) nil] | org-src-babel-configure-edit-buffer | org-src-mode-configure-edit-buffer |
 
 ** Evil commenter
 #+begin_src emacs-lisp
@@ -666,9 +708,8 @@ Use SPC-tab to uncomment the lines.
       :ensure t
       :hook (typescript-mode . lsp-deferred)
       )
-
+    (add-hook 'typescript-ts-mode-hook #'lsp-deferred)
     (add-hook 'tsx-ts-mode-hook #'lsp-deferred)
-
 #+end_src
 
 #+RESULTS:
@@ -890,6 +931,66 @@ Highlights uncommitted changes on the left side of the window (area also known a
       :init (global-diff-hl-mode))
 #+end_src
 
+** Corfu
+#+begin_src emacs-lisp
+(use-package corfu
+  ;; Optional customizations
+  :custom
+  (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
+  (corfu-auto t)                 ;; Enable auto completion
+  (corfu-auto-prefix 2)          ;; Minimum length of prefix for auto completion.
+  (corfu-popupinfo-mode t)       ;; Enable popup information
+  (corfu-popupinfo-delay 0.5)    ;; Lower popupinfo delay to 0.5 seconds from 2 seconds
+  (corfu-separator ?\s)          ;; Orderless field separator, Use M-SPC to enter separator
+  ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
+  ;; (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
+  ;; (corfu-preview-current nil)    ;; Disable current candidate preview
+  ;; (corfu-preselect 'prompt)      ;; Preselect the prompt
+  ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
+  ;; (corfu-scroll-margin 5)        ;; Use scroll margin
+  (completion-ignore-case t)
+  ;; Enable indentation+completion using the TAB key.
+  ;; `completion-at-point' is often bound to M-TAB.
+  (tab-always-indent 'complete)
+  (corfu-preview-current nil) ;; Don't insert completion without confirmation
+  ;; Recommended: Enable Corfu globally.  This is recommended since Dabbrev can
+  ;; be used globally (M-/).  See also the customization variable
+  ;; `global-corfu-modes' to exclude certain modes.
+  :init
+  (global-corfu-mode))
+
+(use-package nerd-icons-corfu
+  :after corfu
+  :init (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
+#+end_src
+
+** Cape
+#+begin_src emacs-lisp
+(use-package cape
+  :after corfu
+  :init
+  ;; Add to the global default value of `completion-at-point-functions' which is
+  ;; used by `completion-at-point'.  The order of the functions matters, the
+  ;; first function returning a result wins.  Note that the list of buffer-local
+  ;; completion functions takes precedence over the global list.
+  ;; The functions that are added later will be the first in the list
+
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev) ;; Complete word from current buffers
+  (add-to-list 'completion-at-point-functions #'cape-dict) ;; Dictionary completion
+  (add-to-list 'completion-at-point-functions #'cape-file) ;; Path completion
+  (add-to-list 'completion-at-point-functions #'cape-elisp-block) ;; Complete elisp in Org or Markdown mode
+  (add-to-list 'completion-at-point-functions #'cape-keyword) ;; Keyword/Snipet completion
+
+  ;;(add-to-list 'completion-at-point-functions #'cape-abbrev) ;; Complete abbreviation
+  ;;(add-to-list 'completion-at-point-functions #'cape-history) ;; Complete from Eshell, Comint or minibuffer history
+  ;;(add-to-list 'completion-at-point-functions #'cape-line) ;; Complete entire line from current buffer
+  ;;(add-to-list 'completion-at-point-functions #'cape-elisp-symbol) ;; Complete Elisp symbol
+  ;;(add-to-list 'completion-at-point-functions #'cape-tex) ;; Complete Unicode char from TeX command, e.g. \hbar
+  ;;(add-to-list 'completion-at-point-functions #'cape-sgml) ;; Complete Unicode char from SGML entity, e.g., &alpha
+  ;;(add-to-list 'completion-at-point-functions #'cape-rfc1345) ;; Complete Unicode char using RFC 1345 mnemonics
+  )
+#+end_src
+
 ** Orderless
 Completion style that divides the pattern into space-separated components, and matches candidates that match all of the components in any order.
 Recomended for packages like vertico, corfu.
@@ -1016,6 +1117,27 @@ Which-key is a helper utility for keychords (which key to press).
       (which-key-max-description-length 25)
       (which-key-allow-imprecise-window-fit nil)) ;; Fixes which-key window slipping out in Emacs Daemon
 #+end_src
+
+** Elfeed
+#+begin_src emacs-lisp
+(use-package elfeed
+  :ensure t
+  :bind (("C-x w" . elfeed))
+  :custom
+  (elfeed-feeds
+   '(
+     ;; Dev & Emacs
+     ("https://planet.emacslife.com/atom.xml" emacs)
+     ("https://nullprogram.com/feed/" programming)
+     ("https://xenodium.com/rss.xml" emacs personal)
+     ;; Tech/News
+     ("https://lobste.rs/rss" tech)
+     ("https://hnrss.org/frontpage" hackernews)
+     )))
+#+end_src
+
+#+RESULTS:
+: elfeed
 
 * Runtime Performance
 Dial the GC threshold back down so that garbage collection happens more frequently but in less time.
