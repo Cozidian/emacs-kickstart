@@ -53,6 +53,7 @@
   - [[#nerd-icons][Nerd Icons]]
   - [[#git][Git]]
   - [[#corfu][Corfu]]
+  - [[#corfu-terminal][Corfu terminal]]
   - [[#cape][Cape]]
   - [[#orderless][Orderless]]
   - [[#vertico-and-marginalia][Vertico and Marginalia]]
@@ -1380,6 +1381,19 @@ Highlights uncommitted changes on the left side of the window (area also known a
   :after corfu
   :init (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
 #+end_src
+
+** Corfu terminal
+#+begin_src emacs-lisp
+(use-package corfu-terminal
+  :ensure t
+  :after corfu
+  :config
+  (unless (display-graphic-p)
+    (corfu-terminal-mode +1)))
+#+end_src
+
+#+RESULTS:
+: t
 
 ** Cape
 #+begin_src emacs-lisp

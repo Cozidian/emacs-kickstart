@@ -971,6 +971,13 @@ export function example(...) {
   :after corfu
   :init (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
 
+(use-package corfu-terminal
+  :ensure t
+  :after corfu
+  :config
+  (unless (display-graphic-p)
+    (corfu-terminal-mode +1)))
+
 (use-package cape
   :after corfu
   :init
