@@ -146,7 +146,10 @@
     "t t" '(visual-line-mode :wk "Toggle truncated lines (wrap)")
     "t l" '(display-line-numbers-mode :wk "Toggle line numbers"))
   (start/leader-keys
-	"c" '(:ignore t :wk "Code"))
+	"c" '(:ignore t :wk "Code")
+	"c a" '(lsp-execute-code-action :wk "Code actions")
+	"c g r" '(lsp-find-references :wk "Find references")
+	"c g d" '(lsp-goto-implementation :wk "Goto implementation"))
   (general-define-key
    :states '(normal visual)
    :keymaps 'override
@@ -162,6 +165,10 @@
   (("M-s"     . avy-goto-char)
    ("M-g g"   . avy-goto-line)
    ("M-g M-g" . avy-goto-line)))
+
+(use-package ace-window
+  :ensure t
+  :bind (("M-w" . ace-window)))
 
 (use-package emacs
   :custom
@@ -211,6 +218,15 @@
                 (evil-normalize-keymaps))))
           nil nil t)
   )
+
+;; Make projectile grep/symbol-at-point not include '=' at the end
+(defun my/projectile-symbol-at-point ()
+  "Like `projectile-symbol-at-point', but don't include '='."
+  (let ((sym (thing-at-point 'symbol)))
+    (when sym
+      (replace-regexp-in-string "=$" "" sym))))
+
+(advice-add 'projectile-symbol-at-point :override #'my/projectile-symbol-at-point)
 
 ;; (use-package gruvbox-theme
     ;;   :config
@@ -372,7 +388,7 @@
 
 (use-package lsp-mode
   :init
-  (setq lsp-keymap-prefix "SPC c")
+  (setq lsp-keymap-prefix "C-c l") 
   :hook ((typescript-mode . lsp-deferred)
          (tsx-ts-mode . lsp-deferred)
          (typescript-ts-mode . lsp-deferred)
@@ -415,6 +431,11 @@
                            :javascript (:format (:enable t))
                            :vtsls (:experimental (:completion (:enableServerSideFuzzyMatch t))))))))))
 
+(use-package flycheck
+  :ensure t
+  :config
+  (add-hook 'after-init-hook #'global-flycheck-mode))
+
 (use-package evil-nerd-commenter
   :ensure t)
 
@@ -435,14 +456,17 @@
   (global-treesit-auto-mode)
   (treesit-auto-add-to-auto-mode-alist 'all))
 
-(use-package typescript-mode 
+(use-package typescript-ts-mode 
   :ensure t
-  :hook (typescript-mode . lsp-deferred)
+  :hook (typescript-ts-mode . lsp-deferred)
   )
 (add-hook 'typescript-ts-mode-hook #'lsp-deferred)
 (add-hook 'tsx-ts-mode-hook #'lsp-deferred)
 
-
+(use-package dotenv-mode
+  :ensure t
+  :mode (("\\.env\\..*\\'" . dotenv-mode)
+         ("\\.env\\'" . dotenv-mode)))
 
 (use-package org
   :ensure nil
@@ -543,6 +567,354 @@
 
 (use-package eat
   :hook ('eshell-load-hook #'eat-eshell-mode))
+
+;; (defvar nba--ghost-overlay nil "Overlay for NBA ghost text preview.")
+
+;; (defun nba/first-n (s n)
+;;   "Return the first N characters of string S, or \"\" if S is nil."
+;;   (if (and s (stringp s))
+;;       (substring s 0 (min n (length s)))
+;;     ""))
+
+;; (defun nba/capture-edit-context ()
+;;   "Capture relevant context for next best action, focusing on buffer."
+;;   (let ((buf-name (or (buffer-name) "unnamed-buffer"))
+;;         (mode (or major-mode 'fundamental-mode))
+;;         (contents (or (buffer-substring-no-properties (point-min) (point-max)) "")))
+;;     (message "[nba/capture-edit-context] buf-name: %S, mode: %S, first-30: %S"
+;;              buf-name mode (nba/first-n contents 30))
+;;     (list :buffer buf-name :mode mode :contents contents)))
+
+;; (defun nba/build-prompt (context)
+;;   "Prompt LLM for just the updated code, nothing else."
+;;   (let* ((buf (plist-get context :buffer))
+;;          (mode (plist-get context :mode))
+;;          (contents (plist-get context :contents)))
+;;     (message "[nba/build-prompt] buf: %S, mode: %S, first-30: %S"
+;;              buf mode (nba/first-n contents 30))
+;;     (format
+;;      "You are an expert %s developer. I am working in the buffer \"%s\" (major-mode: %s). Here are the current contents:\n\n%s
+
+;; Given my recent changes, determine which *single* function or interface must be updated. Return ONLY the entire, updated code for that symbol, as plain text—no explanations, no markdown, no triple backticks, no comments, no headers, no extra output. Only the complete code I should paste in, as it would appear in the file.
+
+;; For example, if the 'createUser' function must change, return ONLY:
+
+;; export function createUser(name: string, email: string, age: number): User {
+;;   return {
+;;     name,
+;;     email,
+;;     age,
+;;   };
+;; }
+
+;; Do NOT return any explanations, comments, markdown, or other symbols. If more than one symbol could be changed, pick the most important one and only return that."
+;;      (if (string-match "typescript" (symbol-name mode)) "TypeScript" "programming language")
+;;      buf mode contents))
+;; )
+
+;; (defun nba/get-symbol-name (code)
+;;   "Extract the symbol name (function or interface) from CODE."
+;;   (cond
+;;    ;; function foo(...
+;;    ((string-match "function[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*(" code)
+;;     (match-string 1 code))
+;;    ;; interface Foo {
+;;    ((string-match "interface[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*{" code)
+;;     (match-string 1 code))
+;;    (t nil)))
+
+;; (defun nba/show-ghost-text (symbol-name code)
+;;   "Show CODE as ghost text replacing SYMBOL-NAME in the current buffer."
+;;   (nba/remove-ghost-text)
+;;   (save-excursion
+;;     (goto-char (point-min))
+;;     (let ((pattern (concat
+;;                     "\\_<\\(function\\|interface\\)\\_>[ \t\n]+"
+;;                     (regexp-quote symbol-name)
+;;                     "\\b")))
+;;       (if (re-search-forward pattern nil t)
+;;           (let ((start (match-beginning 0)))
+;;             (when (re-search-forward "^[}]\\s-*$" nil t)
+;;               (let ((end (point)))
+;;                 (setq nba--ghost-overlay
+;;                       (make-overlay start end (current-buffer) nil t))
+;;                 (overlay-put nba--ghost-overlay 'after-string
+;;                              (propertize code 'face '(:foreground "grey50")))
+;;                 (overlay-put nba--ghost-overlay 'nba-ghost t)
+;;                 (message "Ghost text preview shown. Press C-c C-a to accept, C-c C-d to dismiss."))))
+;;         (message "Could not find symbol %s in buffer" symbol-name)))))
+
+;; (defun nba/remove-ghost-text ()
+;;   "Remove any NBA ghost text overlay."
+;;   (when (and nba--ghost-overlay (overlayp nba--ghost-overlay))
+;;     (delete-overlay nba--ghost-overlay)
+;;     (setq nba--ghost-overlay nil)))
+
+;; (defun nba/accept-ghost-text ()
+;;   "Accept and insert the current ghost text."
+;;   (interactive)
+;;   (when (and nba--ghost-overlay (overlayp nba--ghost-overlay))
+;;     (let ((start (overlay-start nba--ghost-overlay))
+;;           (end (overlay-end nba--ghost-overlay))
+;;           (code (overlay-get nba--ghost-overlay 'after-string)))
+;;       (save-excursion
+;;         (goto-char start)
+;;         (delete-region start end)
+;;         (insert code)))
+;;     (nba/remove-ghost-text)
+;;     (message "Code inserted!")))
+
+;; (defun nba/dismiss-ghost-text ()
+;;   "Dismiss the current ghost text overlay."
+;;   (interactive)
+;;   (nba/remove-ghost-text)
+;;   (message "Ghost text dismissed."))
+
+;; ;; Keybindings (global, but you can scope them to typescript-mode if you prefer)
+;; (define-key global-map (kbd "C-c C-a") 'nba/accept-ghost-text)
+;; (define-key global-map (kbd "C-c C-d") 'nba/dismiss-ghost-text)
+
+;; (defun nba/display-suggestions (response info)
+;;   "Show LLM code as ghost text in the current buffer."
+;;   (let* ((code (string-trim response))
+;;          (symbol-name (nba/get-symbol-name code)))
+;;     (message "[nba/display-suggestions] symbol: %S" symbol-name)
+;;     (when symbol-name
+;;       (nba/show-ghost-text symbol-name code))))
+
+;; (defun nba/send-to-llm (context)
+;;   "Send CONTEXT to LLM and return suggestions."
+;;   (message "[nba/send-to-llm] context: %S" context)
+;;   (let ((prompt (nba/build-prompt context)))
+;;     (message "[nba/send-to-llm] prompt first-80: %S"
+;;              (nba/first-n prompt 80))
+;;     (gptel-request prompt :callback #'nba/display-suggestions)))
+
+;; (defun nba/next-best-action ()
+;;   "Ask LLM for next best action after current edit."
+;;   (interactive)
+;;   (message "[nba/next-best-action] called from buffer: %S, mode: %S"
+;;            (buffer-name) major-mode)
+;;   (nba/send-to-llm (nba/capture-edit-context)))
+
+(defvar nba--ghost-overlay nil "Overlay for NBA ghost text preview.")
+
+(defun nba/first-n (s n)
+  "Return the first N characters of string S, or \"\" if S is nil."
+  (if (and s (stringp s))
+      (substring s 0 (min n (length s)))
+    ""))
+
+;;;; === Section: Context Collection ===
+
+(defun nba/git-diff-current-file ()
+  "Get the git diff for the current buffer file."
+  (when-let ((file (buffer-file-name)))
+    (with-temp-buffer
+      (call-process "git" nil t nil "diff" file)
+      (buffer-string))))
+
+(defun nba/lsp-diagnostics ()
+  "Collect LSP diagnostics (errors, warnings) for current buffer."
+  (when (and (bound-and-true-p lsp-mode)
+             (fboundp 'lsp-diagnostics))
+    (let* ((file (or (buffer-file-name) (buffer-name)))
+           (diags-by-file (lsp-diagnostics))
+           (file-diags (gethash file diags-by-file)))
+      (when file-diags
+        (mapconcat
+         (lambda (diag)
+           (format "%s [%s]: %s"
+                   (gethash "source" diag)
+                   (gethash "severity" diag)
+                   (gethash "message" diag)))
+         file-diags "\n")))))
+
+(defun nba/flycheck-issues ()
+  "Collect Flycheck issues for current buffer."
+  (when (bound-and-true-p flycheck-mode)
+    (let ((errors (flycheck-overlay-errors-in (point-min) (point-max))))
+      (mapconcat #'flycheck-error-message errors "\n"))))
+
+(defun nba/treesit-summary ()
+  "Summarize top-level symbols in buffer using Tree-sitter."
+  (when (and (fboundp 'treesit-ready-p)
+             (treesit-ready-p major-mode))
+    (let* ((root (treesit-buffer-root-node))
+           (children (treesit-node-children root)))
+      (mapconcat
+       (lambda (node)
+         (format "%s: %s"
+                 (treesit-node-type node)
+                 (string-trim (treesit-node-text node))))
+       children "\n"))))
+
+(defun nba/collect-context ()
+  "Collect full context for LLM: git diff, LSP, treesit, etc."
+  (let* ((diff (nba/git-diff-current-file))
+         (lsp (or (nba/lsp-diagnostics) (nba/flycheck-issues)))
+         (ast (nba/treesit-summary))
+         (buf (buffer-name))
+         (mode major-mode))
+    (list :buffer buf :mode mode
+          :diff diff
+          :lsp lsp
+          :ast ast)))
+
+;;;; === Section: Prompt Construction (Generic) ===
+
+(defun nba/build-prompt (context)
+  "Builds a generic LLM prompt for code action suggestions (pure code output)."
+  (let ((buf (plist-get context :buffer))
+        (mode (plist-get context :mode))
+        (diff (plist-get context :diff))
+        (lsp (plist-get context :lsp))
+        (ast (plist-get context :ast)))
+    (format
+     "You are an expert %s developer. I am working in the buffer \"%s\" (major-mode: %s).
+
+Here is the context for your suggestion:
+---
+*Git diff for this file:*
+%s
+
+*Diagnostics (errors, warnings):*
+%s
+
+*File structure summary:*
+%s
+---
+
+Given ONLY this information, determine what single top-level code element (such as a function, class, type, interface, or variable) most obviously needs updating or completion in this file.
+
+Return ONLY the full, updated code for that element, exactly as it should appear in the file. DO NOT include explanations, comments, markdown, triple backticks, code fences, or any extra output—only the code. If more than one symbol could be updated, pick the most immediately relevant to the last change.
+
+**Output format example (for a function):**
+
+export function example(...) {
+  // ...
+}
+
+(But the actual output must be only the code, for the most relevant symbol, nothing else.)"
+     (if (string-match "typescript" (symbol-name mode)) "TypeScript" "programming language")
+     buf mode (or diff "none") (or lsp "none") (or ast "none"))))
+
+;;;; === Section: Ghost Text Overlay ===
+
+(defun nba/get-symbol-name (code)
+  "Extract the symbol name from CODE for function, interface, class, type, or variable."
+  (or
+   (when (string-match "function[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*(" code)
+     (match-string 1 code))
+   (when (string-match "interface[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*{" code)
+     (match-string 1 code))
+   (when (string-match "class[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*" code)
+     (match-string 1 code))
+   (when (string-match "type[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*=" code)
+     (match-string 1 code))
+   (when (string-match "\\_<\\(const\\|let\\|var\\)[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*[:=]" code)
+     (match-string 2 code))))
+
+(defun nba/clean-code-output (response)
+  "Extracts pure code from RESPONSE, removing any markdown code fences."
+  (let ((trimmed (string-trim response)))
+    (if (string-match "```[a-zA-Z0-9]*\n\\([\\s\\S]+?\\)```" trimmed)
+        (string-trim (match-string 1 trimmed))
+      trimmed)))
+
+(defun nba/show-ghost-text (symbol-name code)
+  "Show CODE as ghost text replacing SYMBOL-NAME in the current buffer."
+  (nba/remove-ghost-text)
+  (save-excursion
+    (goto-char (point-min))
+    (let* ((pattern (concat
+                     "\\_<\\(function\\|interface\\|class\\|type\\|const\\|let\\|var\\)\\_>[ \t\n]+"
+                     (regexp-quote symbol-name)
+                     "\\b"))
+           (found (re-search-forward pattern nil t)))
+      (if found
+          (let ((start (match-beginning 0)))
+            ;; For types/interfaces/classes/functions: match block or assignment
+            (cond
+             ;; function/class/interface block
+             ((looking-at "[^{=]*{")
+              (goto-char (match-end 0))
+              (when (re-search-forward "^[}]\\s-*$" nil t)
+                (let ((end (point)))
+                  (setq nba--ghost-overlay
+                        (make-overlay start end (current-buffer) nil t))
+                  (overlay-put nba--ghost-overlay 'after-string
+                               (propertize code 'face '(:foreground "grey50")))
+                  (overlay-put nba--ghost-overlay 'nba-ghost t)
+                  (message "Ghost text preview shown. Press C-c C-a to accept, C-c C-d to dismiss."))))
+             ;; type/const/let/var assignment
+             ((looking-at "[^=]*=")
+              (goto-char (match-end 0))
+              (end-of-line)
+              (let ((end (point)))
+                (setq nba--ghost-overlay
+                      (make-overlay start end (current-buffer) nil t))
+                (overlay-put nba--ghost-overlay 'after-string
+                             (propertize code 'face '(:foreground "grey50")))
+                (overlay-put nba--ghost-overlay 'nba-ghost t)
+                (message "Ghost text preview shown. Press C-c C-a to accept, C-c C-d to dismiss."))))
+        (message "Could not find symbol %s in buffer" symbol-name))))))
+
+(defun nba/remove-ghost-text ()
+  "Remove any NBA ghost text overlay."
+  (when (and nba--ghost-overlay (overlayp nba--ghost-overlay))
+    (delete-overlay nba--ghost-overlay)
+    (setq nba--ghost-overlay nil)))
+
+(defun nba/accept-ghost-text ()
+  "Accept and insert the current ghost text."
+  (interactive)
+  (when (and nba--ghost-overlay (overlayp nba--ghost-overlay))
+    (let ((start (overlay-start nba--ghost-overlay))
+          (end (overlay-end nba--ghost-overlay))
+          (code (overlay-get nba--ghost-overlay 'after-string)))
+      (save-excursion
+        (goto-char start)
+        (delete-region start end)
+        (insert code)))
+    (nba/remove-ghost-text)
+    (message "Code inserted!")))
+
+(defun nba/dismiss-ghost-text ()
+  "Dismiss the current ghost text overlay."
+  (interactive)
+  (nba/remove-ghost-text)
+  (message "Ghost text dismissed."))
+
+;; Keybindings (global, but you can scope them to typescript-mode if you prefer)
+(define-key global-map (kbd "C-c C-a") 'nba/accept-ghost-text)
+(define-key global-map (kbd "C-c C-d") 'nba/dismiss-ghost-text)
+
+;;;; === Section: LLM Integration ===
+
+(defun nba/display-suggestions (response info)
+  "Show LLM code as ghost text in the current buffer."
+  (let* ((code (nba/clean-code-output response))
+         (symbol-name (nba/get-symbol-name code)))
+    (if symbol-name
+        (nba/show-ghost-text symbol-name code)
+      (message "Could not determine symbol name from LLM output!"))))
+
+(defun nba/send-to-llm (context)
+  "Send CONTEXT to LLM and return suggestions."
+  (let ((prompt (nba/build-prompt context)))
+    (gptel-request prompt :callback #'nba/display-suggestions)))
+
+;;;; === Section: Trigger ===
+
+(defun nba/next-best-action ()
+  "Ask LLM for next best action after current edit."
+  (interactive)
+  (nba/send-to-llm (nba/collect-context)))
+
+(use-package docker
+  :ensure t
+  :bind ("C-c d" . docker))
 
 ;; (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 

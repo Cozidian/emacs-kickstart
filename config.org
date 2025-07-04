@@ -17,7 +17,9 @@
   - [[#evil-mode][Evil Mode]]
   - [[#general-keybindings][General Keybindings]]
   - [[#avy][Avy]]
+  - [[#window-managment][Window managment]]
   - [[#good-defaults][Good Defaults]]
+  - [[#overwrites][Overwrites]]
 - [[#appearance][Appearance]]
   - [[#set-theme][Set Theme]]
   - [[#transparency][Transparency]]
@@ -34,11 +36,15 @@
   - [[#ediff][ediff]]
   - [[#company][Company]]
   - [[#lsp-mode][Lsp-mode]]
+  - [[#flycheck][Flycheck]]
   - [[#evil-commenter][Evil commenter]]
   - [[#markdown-mode][Markdown mode]]
   - [[#yasnippet][Yasnippet]]
   - [[#language-modes][Language modes]]
   - [[#terminal][Terminal]]
+  - [[#next-best-action-feature][Next best action feature]]
+  - [[#next-best-action-feature-v2][Next best action feature v2]]
+  - [[#docker][Docker]]
 - [[#multi-file-example][Multi File Example]]
   - [[#adding-the-lisp-directory-to-load-path][Adding the lisp directory to load-path]]
   - [[#sourcing-the-files][Sourcing the files]]
@@ -274,7 +280,10 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
         "t t" '(visual-line-mode :wk "Toggle truncated lines (wrap)")
         "t l" '(display-line-numbers-mode :wk "Toggle line numbers"))
       (start/leader-keys
-    	"c" '(:ignore t :wk "Code"))
+    	"c" '(:ignore t :wk "Code")
+    	"c a" '(lsp-execute-code-action :wk "Code actions")
+    	"c g r" '(lsp-find-references :wk "Find references")
+    	"c g d" '(lsp-goto-implementation :wk "Goto implementation"))
       (general-define-key
        :states '(normal visual)
        :keymaps 'override
@@ -307,6 +316,16 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
 
 #+RESULTS:
 : avy-goto-line
+
+** Window managment
+#+begin_src emacs-lisp
+(use-package ace-window
+  :ensure t
+  :bind (("M-w" . ace-window)))
+#+end_src
+
+#+RESULTS:
+: ace-window
 
 ** Good Defaults
 #+begin_src emacs-lisp
@@ -362,6 +381,20 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
 
 #+RESULTS:
 : keyboard-escape-quit
+
+** Overwrites
+#+begin_src emacs-lisp
+;; Make projectile grep/symbol-at-point not include '=' at the end
+(defun my/projectile-symbol-at-point ()
+  "Like `projectile-symbol-at-point', but don't include '='."
+  (let ((sym (thing-at-point 'symbol)))
+    (when sym
+      (replace-regexp-in-string "=$" "" sym))))
+
+(advice-add 'projectile-symbol-at-point :override #'my/projectile-symbol-at-point)
+#+end_src
+
+#+RESULTS:
 
 * Appearance
 ** Set Theme
@@ -606,53 +639,64 @@ Project interaction library for Emacs.
 
 ** Lsp-mode 
 #+begin_src emacs-lisp
-  (use-package lsp-mode
-    :init
-    (setq lsp-keymap-prefix "SPC c")
-    :hook ((typescript-mode . lsp-deferred)
-           (tsx-ts-mode . lsp-deferred)
-           (typescript-ts-mode . lsp-deferred)
-           (js-mode . lsp-deferred)
-           (js-ts-mode . lsp-deferred)
-           (lsp-mode . lsp-enable-which-key-integration))
-    :commands (lsp lsp-deferred)
-    :custom
-    (lsp-ui-doc-enable t)
-    (lsp-completion-provider :none))
+    (use-package lsp-mode
+      :init
+      (setq lsp-keymap-prefix "C-c l") 
+      :hook ((typescript-mode . lsp-deferred)
+             (tsx-ts-mode . lsp-deferred)
+             (typescript-ts-mode . lsp-deferred)
+             (js-mode . lsp-deferred)
+             (js-ts-mode . lsp-deferred)
+             (lsp-mode . lsp-enable-which-key-integration))
+      :commands (lsp lsp-deferred)
+      :custom
+      (lsp-ui-doc-enable t)
+      (lsp-completion-provider :none))
 
-  (use-package lsp-ui
-    :commands lsp-ui-mode)
+    (use-package lsp-ui
+      :commands lsp-ui-mode)
 
-  (use-package lsp-ivy
-    :commands lsp-ivy-workspace-symbol)
+    (use-package lsp-ivy
+      :commands lsp-ivy-workspace-symbol)
 
-  (use-package lsp-treemacs
-    :commands lsp-treemacs-errors-list)
+    (use-package lsp-treemacs
+      :commands lsp-treemacs-errors-list)
 
-  (use-package which-key
-    :config
-    (which-key-mode))
+    (use-package which-key
+      :config
+      (which-key-mode))
 
-  ;; Disable other TS/JS language servers to avoid conflicts
-  (setq lsp-disabled-clients '(ts-ls deno-ls))
+    ;; Disable other TS/JS language servers to avoid conflicts
+    (setq lsp-disabled-clients '(ts-ls deno-ls))
 
-  ;; Register vtsls as the preferred LSP for TS/JS
-  (with-eval-after-load 'lsp-mode
-    (lsp-register-client
-     (make-lsp-client
-      :new-connection (lsp-stdio-connection '("vtsls" "--stdio"))
-      :major-modes '(typescript-mode tsx-ts-mode typescript-ts-mode js-mode js-ts-mode)
-      :server-id 'vtsls
-      :priority 3
-      :initialized-fn (lambda (workspace)
-                        (with-lsp-workspace workspace
-                          (lsp--set-configuration
-                           `(:typescript (:format (:enable t))
-                             :javascript (:format (:enable t))
-                             :vtsls (:experimental (:completion (:enableServerSideFuzzyMatch t))))))))))
+    ;; Register vtsls as the preferred LSP for TS/JS
+    (with-eval-after-load 'lsp-mode
+      (lsp-register-client
+       (make-lsp-client
+        :new-connection (lsp-stdio-connection '("vtsls" "--stdio"))
+        :major-modes '(typescript-mode tsx-ts-mode typescript-ts-mode js-mode js-ts-mode)
+        :server-id 'vtsls
+        :priority 3
+        :initialized-fn (lambda (workspace)
+                          (with-lsp-workspace workspace
+                            (lsp--set-configuration
+                             `(:typescript (:format (:enable t))
+                               :javascript (:format (:enable t))
+                               :vtsls (:experimental (:completion (:enableServerSideFuzzyMatch t))))))))))
 #+end_src
 
 #+RESULTS:
+
+** Flycheck
+#+begin_src emacs-lisp
+(use-package flycheck
+  :ensure t
+  :config
+  (add-hook 'after-init-hook #'global-flycheck-mode))
+#+end_src
+
+#+RESULTS:
+: t
 
 ** Evil commenter
 #+begin_src emacs-lisp
@@ -704,9 +748,9 @@ Use SPC-tab to uncomment the lines.
 # #+end_src
 *** Typescript mode
 #+begin_src emacs-lisp
-    (use-package typescript-mode 
+    (use-package typescript-ts-mode 
       :ensure t
-      :hook (typescript-mode . lsp-deferred)
+      :hook (typescript-ts-mode . lsp-deferred)
       )
     (add-hook 'typescript-ts-mode-hook #'lsp-deferred)
     (add-hook 'tsx-ts-mode-hook #'lsp-deferred)
@@ -715,9 +759,17 @@ Use SPC-tab to uncomment the lines.
 #+RESULTS:
 | lsp-deferred |
 
-*** Typescript lsp 
+*** env-files 
 #+begin_src emacs-lisp
+(use-package dotenv-mode
+  :ensure t
+  :mode (("\\.env\\..*\\'" . dotenv-mode)
+         ("\\.env\\'" . dotenv-mode)))
 #+end_src
+
+#+RESULTS:
+: ((\.env\..*\' . dotenv-mode) (\.env\.example\' . dotenv-mode) (\.env\' . dotenv-mode) (\.envrc\' . envrc-mode) (\.env\' . envrc-mode) (\.env\..*\' . envrc-mode) (\.ya?ml\' . yaml-ts-mode) (\.ts\' . typescript-ts-mode) (\.tsx\' . tsx-ts-mode) (\.toml\' . toml-ts-mode) (\.rs\' . rust-ts-mode) (\(?:\.\(?:rbw?\|ru\|rake\|thor\|jbuilder\|rabl\|gemspec\|podspec\)\|/\(?:Gem\|Rake\|Cap\|Thor\|Puppet\|Berks\|Brew\|Vagrant\|Guard\|Pod\)file\)\' . ruby-ts-mode) (\.py[iw]?\' . python-ts-mode) (\.lua\' . lua-ts-mode) (\.json\' . json-ts-mode) (\.js\' . js-ts-mode) (\.java\' . java-ts-mode) (\.html\' . html-ts-mode) (\.heex\' . heex-ts-mode) (go\.mod\' . go-mod-ts-mode) (\.go\' . go-ts-mode) (\.ex\' . elixir-ts-mode) ([/\]\(?:Containerfile\|Dockerfile\)\(?:\.[^/\]*\)?\' . dockerfile-ts-mode) (\.css\' . css-ts-mode) (\.cpp\' . c++-ts-mode) (\.cmake\' . cmake-ts-mode) (\.cs\' . csharp-ts-mode) (\.c\' . c-ts-mode) (\.sh\' . bash-ts-mode) (README\.md\' . gfm-mode) (\.envrc\' . envrc-file-mode) (/git-rebase-todo\' . git-rebase-mode) (\.\(?:md\|markdown\|mkd\|mdown\|mkdn\|mdwn\)\' . markdown-mode) (\.tsx?\' . typescript-mode) (\.gpg\(~\|\.~[0-9]+~\)?\' nil epa-file) (\.elc\' . elisp-byte-code-mode) (\.zst\' nil jka-compr) (\.dz\' nil jka-compr) (\.xz\' nil jka-compr) (\.lzma\' nil jka-compr) (\.lz\' nil jka-compr) (\.g?z\' nil jka-compr) (\.bz2\' nil jka-compr) (\.Z\' nil jka-compr) (\.vr[hi]?\' . vera-mode) (\(?:\.\(?:rbw?\|ru\|rake\|thor\|axlsx\|jbuilder\|rabl\|gemspec\|podspec\)\|/\(?:Gem\|Rake\|Cap\|Thor\|Puppet\|Berks\|Brew\|Fast\|Vagrant\|Guard\|Pod\)file\)\' . ruby-mode) (\.re?st\' . rst-mode) (/\(?:Pipfile\|\.?flake8\)\' . conf-mode) (\.py[iw]?\' . python-mode) (\.m\' . octave-maybe-mode) (\.less\' . less-css-mode) (\.editorconfig\' . editorconfig-conf-mode) (\.scss\' . scss-mode) (\.cs\' . csharp-mode) (\.awk\' . awk-mode) (\.\(u?lpc\|pike\|pmod\(\.in\)?\)\' . pike-mode) (\.idl\' . idl-mode) (\.java\' . java-mode) (\.m\' . objc-mode) (\.ii\' . c++-mode) (\.i\' . c-mode) (\.lex\' . c-mode) (\.y\(acc\)?\' . c-mode) (\.h\' . c-or-c++-mode) (\.c\' . c-mode) (\.\(CC?\|HH?\)\' . c++-mode) (\.[ch]\(pp\|xx\|\+\+\)\' . c++-mode) (\.\(cc\|hh\)\' . c++-mode) (\.\(bat\|cmd\)\' . bat-mode) (\.[sx]?html?\(\.[a-zA-Z_]+\)?\' . mhtml-mode) (\.svgz?\' . image-mode) (\.svgz?\' . xml-mode) (\.x[bp]m\' . image-mode) (\.x[bp]m\' . c-mode) (\.p[bpgn]m\' . image-mode) (\.tiff?\' . image-mode) (\.gif\' . image-mode) (\.png\' . image-mode) (\.jpe?g\' . image-mode) (\.webp\' . image-mode) (\.te?xt\' . text-mode) (\.[tT]e[xX]\' . tex-mode) (\.ins\' . tex-mode) (\.ltx\' . latex-mode) (\.dtx\' . doctex-mode) (\.org\' . org-mode) (\.dir-locals\(?:-2\)?\.el\' . lisp-data-mode) (\.eld\' . lisp-data-mode) (eww-bookmarks\' . lisp-data-mode) (tramp\' . lisp-data-mode) (/archive-contents\' . lisp-data-mode) (places\' . lisp-data-mode) (\.emacs-places\' . lisp-data-mode) (\.el\' . emacs-lisp-mode) (Project\.ede\' . emacs-lisp-mode) (\(?:\.\(?:scm\|sls\|sld\|stk\|ss\|sch\)\|/\.guile\)\' . scheme-mode) (\.l\' . lisp-mode) (\.li?sp\' . lisp-mode) (\.[fF]\' . fortran-mode) (\.for\' . fortran-mode) (\.p\' . pascal-mode) (\.pas\' . pascal-mode) (\.\(dpr\|DPR\)\' . delphi-mode) (\.\([pP]\([Llm]\|erl\|od\)\|al\)\' . perl-mode) (Imakefile\' . makefile-imake-mode) (Makeppfile\(?:\.mk\)?\' . makefile-makepp-mode) (\.makepp\' . makefile-makepp-mode) (\.mk\' . makefile-bsdmake-mode) (\.make\' . makefile-bsdmake-mode) (GNUmakefile\' . makefile-gmake-mode) ([Mm]akefile\' . makefile-bsdmake-mode) (\.am\' . makefile-automake-mode) (\.texinfo\' . texinfo-mode) (\.te?xi\' . texinfo-mode) (\.[sS]\' . asm-mode) (\.asm\' . asm-mode) (\.css\' . css-mode) (\.mixal\' . mixal-mode) (\.gcov\' . compilation-mode) (/\.[a-z0-9-]*gdbinit . gdb-script-mode) (-gdb\.gdb . gdb-script-mode) ([cC]hange\.?[lL]og?\' . change-log-mode) ([cC]hange[lL]og[-.][0-9]+\' . change-log-mode) (\$CHANGE_LOG\$\.TXT . change-log-mode) (\.scm\.[0-9]*\' . scheme-mode) (\.[ckz]?sh\'\|\.shar\'\|/\.z?profile\' . sh-mode) (\.bash\' . sh-mode) (/PKGBUILD\' . sh-mode) (\(/\|\`\)\.\(bash_\(profile\|history\|log\(in\|out\)\)\|z?log\(in\|out\)\)\' . sh-mode) (\(/\|\`\)\.\(shrc\|zshrc\|m?kshrc\|bashrc\|t?cshrc\|esrc\)\' . sh-mode) (\(/\|\`\)\.\([kz]shenv\|xinitrc\|startxrc\|xsession\)\' . sh-mode) (\.m?spec\' . sh-mode) (\.m[mes]\' . nroff-mode) (\.man\' . nroff-mode) (\.sty\' . latex-mode) (\.cl[so]\' . latex-mode) (\.bbl\' . latex-mode) (\.bib\' . bibtex-mode) (\.bst\' . bibtex-style-mode) (\.sql\' . sql-mode) (\(acinclude\|aclocal\|acsite\)\.m4\' . autoconf-mode) (\.m[4c]\' . m4-mode) (\.mf\' . metafont-mode) (\.mp\' . metapost-mode) (\.vhdl?\' . vhdl-mode) (\.article\' . text-mode) (\.letter\' . text-mode) (\.i?tcl\' . tcl-mode) (\.exp\' . tcl-mode) (\.itk\' . tcl-mode) (\.icn\' . icon-mode) (\.sim\' . simula-mode) (\.mss\' . scribe-mode) (\.f9[05]\' . f90-mode) (\.f0[38]\' . f90-mode) (\.indent\.pro\' . fundamental-mode) (\.\(pro\|PRO\)\' . idlwave-mode) (\.srt\' . srecode-template-mode) (\.prolog\' . prolog-mode) (\.tar\' . tar-mode) (\.\(arc\|zip\|lzh\|lha\|zoo\|[jew]ar\|xpi\|rar\|cbr\|7z\|squashfs\|ARC\|ZIP\|LZH\|LHA\|ZOO\|[JEW]AR\|XPI\|RAR\|CBR\|7Z\|SQUASHFS\)\' . archive-mode) (\.oxt\' . archive-mode) (\.\(deb\|[oi]pk\)\' . archive-mode) (\`/tmp/Re . text-mode) (/Message[0-9]*\' . text-mode) (\`/tmp/fol/ . text-mode) (\.oak\' . scheme-mode) (\.sgml?\' . sgml-mode) (\.x[ms]l\' . xml-mode) (\.dbk\' . xml-mode) (\.dtd\' . sgml-mode) (\.ds\(ss\)?l\' . dsssl-mode) (\.js[mx]?\' . javascript-mode) (\.har\' . javascript-mode) (\.json\' . js-json-mode) (\.[ds]?va?h?\' . verilog-mode) (\.by\' . bovine-grammar-mode) (\.wy\' . wisent-grammar-mode) (\.erts\' . erts-mode) ([:/\]\..*\(emacs\|gnus\|viper\)\' . emacs-lisp-mode) (\`\..*emacs\' . emacs-lisp-mode) ([:/]_emacs\' . emacs-lisp-mode) (/crontab\.X*[0-9]+\' . shell-script-mode) (\.ml\' . lisp-mode) (\.ld[si]?\' . ld-script-mode) (ld\.?script\' . ld-script-mode) (\.xs\' . c-mode) (\.x[abdsru]?[cnw]?\' . ld-script-mode) (\.zone\' . dns-mode) (\.soa\' . dns-mode) (\.asd\' . lisp-mode) (\.\(asn\|mib\|smi\)\' . snmp-mode) (\.\(as\|mi\|sm\)2\' . snmpv2-mode) (\.\(diffs?\|patch\|rej\)\' . diff-mode) (\.\(dif\|pat\)\' . diff-mode) (\.[eE]?[pP][sS]\' . ps-mode) (\.\(?:PDF\|EPUB\|CBZ\|FB2\|O?XPS\|DVI\|OD[FGPST]\|DOCX\|XLSX?\|PPTX?\|pdf\|epub\|cbz\|fb2\|o?xps\|djvu\|dvi\|od[fgpst]\|docx\|xlsx?\|pptx?\)\' . doc-view-mode-maybe) (configure\.\(ac\|in\)\' . autoconf-mode) (\.s\(v\|iv\|ieve\)\' . sieve-mode) (BROWSE\' . ebrowse-tree-mode) (\.ebrowse\' . ebrowse-tree-mode) (#\*mail\* . mail-mode) (\.g\' . antlr-mode) (\.mod\' . m2-mode) (\.ses\' . ses-mode) (\.docbook\' . sgml-mode) (\.com\' . dcl-mode) (/config\.\(?:bat\|log\)\' . fundamental-mode) (/\.?\(authinfo\|netrc\)\' . authinfo-mode) (\.\(?:[iI][nN][iI]\|[lL][sS][tT]\|[rR][eE][gG]\|[sS][yY][sS]\)\' . conf-mode) (\.la\' . conf-unix-mode) (\.ppd\' . conf-ppd-mode) (java.+\.conf\' . conf-javaprop-mode) (\.properties\(?:\.[a-zA-Z0-9._-]+\)?\' . conf-javaprop-mode) (\.toml\' . conf-toml-mode) (\.desktop\' . conf-desktop-mode) (/\.redshift\.conf\' . conf-windows-mode) (\`/etc/\(?:DIR_COLORS\|ethers\|.?fstab\|.*hosts\|lesskey\|login\.?de\(?:fs\|vperm\)\|magic\|mtab\|pam\.d/.*\|permissions\(?:\.d/.+\)?\|protocols\|rpc\|services\)\' . conf-space-mode) (\`/etc/\(?:acpid?/.+\|aliases\(?:\.d/.+\)?\|default/.+\|group-?\|hosts\..+\|inittab\|ksysguarddrc\|opera6rc\|passwd-?\|shadow-?\|sysconfig/.+\)\' . conf-mode) ([cC]hange[lL]og[-.][-0-9a-z]+\' . change-log-mode) (/\.?\(?:gitconfig\|gnokiirc\|hgrc\|kde.*rc\|mime\.types\|wgetrc\)\' . conf-mode) (/\.mailmap\' . conf-unix-mode) (/\.\(?:asound\|enigma\|fetchmail\|gltron\|gtk\|hxplayer\|mairix\|mbsync\|msmtp\|net\|neverball\|nvidia-settings-\|offlineimap\|qt/.+\|realplayer\|reportbug\|rtorrent\.\|screen\|scummvm\|sversion\|sylpheed/.+\|xmp\)rc\' . conf-mode) (/\.\(?:gdbtkinit\|grip\|mpdconf\|notmuch-config\|orbital/.+txt\|rhosts\|tuxracer/options\)\' . conf-mode) (/\.?X\(?:default\|resource\|re\)s\> . conf-xdefaults-mode) (/X11.+app-defaults/\|\.ad\' . conf-xdefaults-mode) (/X11.+locale/.+/Compose\' . conf-colon-mode) (/X11.+locale/compose\.dir\' . conf-javaprop-mode) (\.~?[0-9]+\.[0-9][-.0-9]*~?\' nil t) (\.\(?:orig\|in\|[bB][aA][kK]\)\' nil t) ([/.]c\(?:on\)?f\(?:i?g\)?\(?:\.[a-zA-Z0-9._-]+\)?\' . conf-mode-maybe) (\.[1-9]\' . nroff-mode) (\.art\' . image-mode) (\.avs\' . image-mode) (\.bmp\' . image-mode) (\.cmyk\' . image-mode) (\.cmyka\' . image-mode) (\.crw\' . image-mode) (\.dcr\' . image-mode) (\.dcx\' . image-mode) (\.dng\' . image-mode) (\.dpx\' . image-mode) (\.fax\' . image-mode) (\.heic\' . image-mode) (\.hrz\' . image-mode) (\.icb\' . image-mode) (\.icc\' . image-mode) (\.icm\' . image-mode) (\.ico\' . image-mode) (\.icon\' . image-mode) (\.jbg\' . image-mode) (\.jbig\' . image-mode) (\.jng\' . image-mode) (\.jnx\' . image-mode) (\.miff\' . image-mode) (\.mng\' . image-mode) (\.mvg\' . image-mode) (\.otb\' . image-mode) (\.p7\' . image-mode) (\.pcx\' . image-mode) (\.pdb\' . image-mode) (\.pfa\' . image-mode) (\.pfb\' . image-mode) (\.picon\' . image-mode) (\.pict\' . image-mode) (\.rgb\' . image-mode) (\.rgba\' . image-mode) (\.tga\' . image-mode) (\.wbmp\' . image-mode) (\.webp\' . image-mode) (\.wmf\' . image-mode) (\.wpg\' . image-mode) (\.xcf\' . image-mode) (\.xmp\' . image-mode) (\.xwd\' . image-mode) (\.yuv\' . image-mode) (\.tgz\' . tar-mode) (\.tbz2?\' . tar-mode) (\.txz\' . tar-mode) (\.tzst\' . tar-mode))
+
 *** Org Mode
 Org mode is one of the things that emacs is loved for.
 Once you've used it for a bit, you'll understand why people love it. Even reading about it can be inspiring!
@@ -866,6 +918,371 @@ We setup eat with eshell, if you want to use bash, zsh etc., check out their git
     (use-package eat
       :hook ('eshell-load-hook #'eat-eshell-mode))
 #+end_src
+
+** Next best action feature
+#+begin_src emacs-lisp
+;; (defvar nba--ghost-overlay nil "Overlay for NBA ghost text preview.")
+
+;; (defun nba/first-n (s n)
+;;   "Return the first N characters of string S, or \"\" if S is nil."
+;;   (if (and s (stringp s))
+;;       (substring s 0 (min n (length s)))
+;;     ""))
+
+;; (defun nba/capture-edit-context ()
+;;   "Capture relevant context for next best action, focusing on buffer."
+;;   (let ((buf-name (or (buffer-name) "unnamed-buffer"))
+;;         (mode (or major-mode 'fundamental-mode))
+;;         (contents (or (buffer-substring-no-properties (point-min) (point-max)) "")))
+;;     (message "[nba/capture-edit-context] buf-name: %S, mode: %S, first-30: %S"
+;;              buf-name mode (nba/first-n contents 30))
+;;     (list :buffer buf-name :mode mode :contents contents)))
+
+;; (defun nba/build-prompt (context)
+;;   "Prompt LLM for just the updated code, nothing else."
+;;   (let* ((buf (plist-get context :buffer))
+;;          (mode (plist-get context :mode))
+;;          (contents (plist-get context :contents)))
+;;     (message "[nba/build-prompt] buf: %S, mode: %S, first-30: %S"
+;;              buf mode (nba/first-n contents 30))
+;;     (format
+;;      "You are an expert %s developer. I am working in the buffer \"%s\" (major-mode: %s). Here are the current contents:\n\n%s
+
+;; Given my recent changes, determine which *single* function or interface must be updated. Return ONLY the entire, updated code for that symbol, as plain text—no explanations, no markdown, no triple backticks, no comments, no headers, no extra output. Only the complete code I should paste in, as it would appear in the file.
+
+;; For example, if the 'createUser' function must change, return ONLY:
+
+;; export function createUser(name: string, email: string, age: number): User {
+;;   return {
+;;     name,
+;;     email,
+;;     age,
+;;   };
+;; }
+
+;; Do NOT return any explanations, comments, markdown, or other symbols. If more than one symbol could be changed, pick the most important one and only return that."
+;;      (if (string-match "typescript" (symbol-name mode)) "TypeScript" "programming language")
+;;      buf mode contents))
+;; )
+
+;; (defun nba/get-symbol-name (code)
+;;   "Extract the symbol name (function or interface) from CODE."
+;;   (cond
+;;    ;; function foo(...
+;;    ((string-match "function[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*(" code)
+;;     (match-string 1 code))
+;;    ;; interface Foo {
+;;    ((string-match "interface[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*{" code)
+;;     (match-string 1 code))
+;;    (t nil)))
+
+;; (defun nba/show-ghost-text (symbol-name code)
+;;   "Show CODE as ghost text replacing SYMBOL-NAME in the current buffer."
+;;   (nba/remove-ghost-text)
+;;   (save-excursion
+;;     (goto-char (point-min))
+;;     (let ((pattern (concat
+;;                     "\\_<\\(function\\|interface\\)\\_>[ \t\n]+"
+;;                     (regexp-quote symbol-name)
+;;                     "\\b")))
+;;       (if (re-search-forward pattern nil t)
+;;           (let ((start (match-beginning 0)))
+;;             (when (re-search-forward "^[}]\\s-*$" nil t)
+;;               (let ((end (point)))
+;;                 (setq nba--ghost-overlay
+;;                       (make-overlay start end (current-buffer) nil t))
+;;                 (overlay-put nba--ghost-overlay 'after-string
+;;                              (propertize code 'face '(:foreground "grey50")))
+;;                 (overlay-put nba--ghost-overlay 'nba-ghost t)
+;;                 (message "Ghost text preview shown. Press C-c C-a to accept, C-c C-d to dismiss."))))
+;;         (message "Could not find symbol %s in buffer" symbol-name)))))
+
+;; (defun nba/remove-ghost-text ()
+;;   "Remove any NBA ghost text overlay."
+;;   (when (and nba--ghost-overlay (overlayp nba--ghost-overlay))
+;;     (delete-overlay nba--ghost-overlay)
+;;     (setq nba--ghost-overlay nil)))
+
+;; (defun nba/accept-ghost-text ()
+;;   "Accept and insert the current ghost text."
+;;   (interactive)
+;;   (when (and nba--ghost-overlay (overlayp nba--ghost-overlay))
+;;     (let ((start (overlay-start nba--ghost-overlay))
+;;           (end (overlay-end nba--ghost-overlay))
+;;           (code (overlay-get nba--ghost-overlay 'after-string)))
+;;       (save-excursion
+;;         (goto-char start)
+;;         (delete-region start end)
+;;         (insert code)))
+;;     (nba/remove-ghost-text)
+;;     (message "Code inserted!")))
+
+;; (defun nba/dismiss-ghost-text ()
+;;   "Dismiss the current ghost text overlay."
+;;   (interactive)
+;;   (nba/remove-ghost-text)
+;;   (message "Ghost text dismissed."))
+
+;; ;; Keybindings (global, but you can scope them to typescript-mode if you prefer)
+;; (define-key global-map (kbd "C-c C-a") 'nba/accept-ghost-text)
+;; (define-key global-map (kbd "C-c C-d") 'nba/dismiss-ghost-text)
+
+;; (defun nba/display-suggestions (response info)
+;;   "Show LLM code as ghost text in the current buffer."
+;;   (let* ((code (string-trim response))
+;;          (symbol-name (nba/get-symbol-name code)))
+;;     (message "[nba/display-suggestions] symbol: %S" symbol-name)
+;;     (when symbol-name
+;;       (nba/show-ghost-text symbol-name code))))
+
+;; (defun nba/send-to-llm (context)
+;;   "Send CONTEXT to LLM and return suggestions."
+;;   (message "[nba/send-to-llm] context: %S" context)
+;;   (let ((prompt (nba/build-prompt context)))
+;;     (message "[nba/send-to-llm] prompt first-80: %S"
+;;              (nba/first-n prompt 80))
+;;     (gptel-request prompt :callback #'nba/display-suggestions)))
+
+;; (defun nba/next-best-action ()
+;;   "Ask LLM for next best action after current edit."
+;;   (interactive)
+;;   (message "[nba/next-best-action] called from buffer: %S, mode: %S"
+;;            (buffer-name) major-mode)
+;;   (nba/send-to-llm (nba/capture-edit-context)))
+#+end_src
+
+#+RESULTS:
+
+** Next best action feature v2
+#+begin_src emacs-lisp
+    (defvar nba--ghost-overlay nil "Overlay for NBA ghost text preview.")
+
+    (defun nba/first-n (s n)
+      "Return the first N characters of string S, or \"\" if S is nil."
+      (if (and s (stringp s))
+          (substring s 0 (min n (length s)))
+        ""))
+
+    ;;;; === Section: Context Collection ===
+
+    (defun nba/git-diff-current-file ()
+      "Get the git diff for the current buffer file."
+      (when-let ((file (buffer-file-name)))
+        (with-temp-buffer
+          (call-process "git" nil t nil "diff" file)
+          (buffer-string))))
+
+    (defun nba/lsp-diagnostics ()
+      "Collect LSP diagnostics (errors, warnings) for current buffer."
+      (when (and (bound-and-true-p lsp-mode)
+                 (fboundp 'lsp-diagnostics))
+        (let* ((file (or (buffer-file-name) (buffer-name)))
+               (diags-by-file (lsp-diagnostics))
+               (file-diags (gethash file diags-by-file)))
+          (when file-diags
+            (mapconcat
+             (lambda (diag)
+               (format "%s [%s]: %s"
+                       (gethash "source" diag)
+                       (gethash "severity" diag)
+                       (gethash "message" diag)))
+             file-diags "\n")))))
+
+    (defun nba/flycheck-issues ()
+      "Collect Flycheck issues for current buffer."
+      (when (bound-and-true-p flycheck-mode)
+        (let ((errors (flycheck-overlay-errors-in (point-min) (point-max))))
+          (mapconcat #'flycheck-error-message errors "\n"))))
+
+    (defun nba/treesit-summary ()
+      "Summarize top-level symbols in buffer using Tree-sitter."
+      (when (and (fboundp 'treesit-ready-p)
+                 (treesit-ready-p major-mode))
+        (let* ((root (treesit-buffer-root-node))
+               (children (treesit-node-children root)))
+          (mapconcat
+           (lambda (node)
+             (format "%s: %s"
+                     (treesit-node-type node)
+                     (string-trim (treesit-node-text node))))
+           children "\n"))))
+
+    (defun nba/collect-context ()
+      "Collect full context for LLM: git diff, LSP, treesit, etc."
+      (let* ((diff (nba/git-diff-current-file))
+             (lsp (or (nba/lsp-diagnostics) (nba/flycheck-issues)))
+             (ast (nba/treesit-summary))
+             (buf (buffer-name))
+             (mode major-mode))
+        (list :buffer buf :mode mode
+              :diff diff
+              :lsp lsp
+              :ast ast)))
+
+    ;;;; === Section: Prompt Construction (Generic) ===
+
+    (defun nba/build-prompt (context)
+      "Builds a generic LLM prompt for code action suggestions (pure code output)."
+      (let ((buf (plist-get context :buffer))
+            (mode (plist-get context :mode))
+            (diff (plist-get context :diff))
+            (lsp (plist-get context :lsp))
+            (ast (plist-get context :ast)))
+        (format
+         "You are an expert %s developer. I am working in the buffer \"%s\" (major-mode: %s).
+
+    Here is the context for your suggestion:
+    ---
+    ,*Git diff for this file:*
+    %s
+
+    ,*Diagnostics (errors, warnings):*
+    %s
+
+    ,*File structure summary:*
+    %s
+    ---
+
+    Given ONLY this information, determine what single top-level code element (such as a function, class, type, interface, or variable) most obviously needs updating or completion in this file.
+
+    Return ONLY the full, updated code for that element, exactly as it should appear in the file. DO NOT include explanations, comments, markdown, triple backticks, code fences, or any extra output—only the code. If more than one symbol could be updated, pick the most immediately relevant to the last change.
+
+    ,**Output format example (for a function):**
+
+    export function example(...) {
+      // ...
+    }
+
+    (But the actual output must be only the code, for the most relevant symbol, nothing else.)"
+         (if (string-match "typescript" (symbol-name mode)) "TypeScript" "programming language")
+         buf mode (or diff "none") (or lsp "none") (or ast "none"))))
+
+    ;;;; === Section: Ghost Text Overlay ===
+
+    (defun nba/get-symbol-name (code)
+      "Extract the symbol name from CODE for function, interface, class, type, or variable."
+      (or
+       (when (string-match "function[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*(" code)
+         (match-string 1 code))
+       (when (string-match "interface[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*{" code)
+         (match-string 1 code))
+       (when (string-match "class[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*" code)
+         (match-string 1 code))
+       (when (string-match "type[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*=" code)
+         (match-string 1 code))
+       (when (string-match "\\_<\\(const\\|let\\|var\\)[ \t\n]+\\([a-zA-Z0-9_]+\\)[ \t\n]*[:=]" code)
+         (match-string 2 code))))
+
+    (defun nba/clean-code-output (response)
+      "Extracts pure code from RESPONSE, removing any markdown code fences."
+      (let ((trimmed (string-trim response)))
+        (if (string-match "```[a-zA-Z0-9]*\n\\([\\s\\S]+?\\)```" trimmed)
+            (string-trim (match-string 1 trimmed))
+          trimmed)))
+
+    (defun nba/show-ghost-text (symbol-name code)
+      "Show CODE as ghost text replacing SYMBOL-NAME in the current buffer."
+      (nba/remove-ghost-text)
+      (save-excursion
+        (goto-char (point-min))
+        (let* ((pattern (concat
+                         "\\_<\\(function\\|interface\\|class\\|type\\|const\\|let\\|var\\)\\_>[ \t\n]+"
+                         (regexp-quote symbol-name)
+                         "\\b"))
+               (found (re-search-forward pattern nil t)))
+          (if found
+              (let ((start (match-beginning 0)))
+                ;; For types/interfaces/classes/functions: match block or assignment
+                (cond
+                 ;; function/class/interface block
+                 ((looking-at "[^{=]*{")
+                  (goto-char (match-end 0))
+                  (when (re-search-forward "^[}]\\s-*$" nil t)
+                    (let ((end (point)))
+                      (setq nba--ghost-overlay
+                            (make-overlay start end (current-buffer) nil t))
+                      (overlay-put nba--ghost-overlay 'after-string
+                                   (propertize code 'face '(:foreground "grey50")))
+                      (overlay-put nba--ghost-overlay 'nba-ghost t)
+                      (message "Ghost text preview shown. Press C-c C-a to accept, C-c C-d to dismiss."))))
+                 ;; type/const/let/var assignment
+                 ((looking-at "[^=]*=")
+                  (goto-char (match-end 0))
+                  (end-of-line)
+                  (let ((end (point)))
+                    (setq nba--ghost-overlay
+                          (make-overlay start end (current-buffer) nil t))
+                    (overlay-put nba--ghost-overlay 'after-string
+                                 (propertize code 'face '(:foreground "grey50")))
+                    (overlay-put nba--ghost-overlay 'nba-ghost t)
+                    (message "Ghost text preview shown. Press C-c C-a to accept, C-c C-d to dismiss."))))
+            (message "Could not find symbol %s in buffer" symbol-name))))))
+
+    (defun nba/remove-ghost-text ()
+      "Remove any NBA ghost text overlay."
+      (when (and nba--ghost-overlay (overlayp nba--ghost-overlay))
+        (delete-overlay nba--ghost-overlay)
+        (setq nba--ghost-overlay nil)))
+
+    (defun nba/accept-ghost-text ()
+      "Accept and insert the current ghost text."
+      (interactive)
+      (when (and nba--ghost-overlay (overlayp nba--ghost-overlay))
+        (let ((start (overlay-start nba--ghost-overlay))
+              (end (overlay-end nba--ghost-overlay))
+              (code (overlay-get nba--ghost-overlay 'after-string)))
+          (save-excursion
+            (goto-char start)
+            (delete-region start end)
+            (insert code)))
+        (nba/remove-ghost-text)
+        (message "Code inserted!")))
+
+    (defun nba/dismiss-ghost-text ()
+      "Dismiss the current ghost text overlay."
+      (interactive)
+      (nba/remove-ghost-text)
+      (message "Ghost text dismissed."))
+
+    ;; Keybindings (global, but you can scope them to typescript-mode if you prefer)
+    (define-key global-map (kbd "C-c C-a") 'nba/accept-ghost-text)
+    (define-key global-map (kbd "C-c C-d") 'nba/dismiss-ghost-text)
+
+    ;;;; === Section: LLM Integration ===
+
+    (defun nba/display-suggestions (response info)
+      "Show LLM code as ghost text in the current buffer."
+      (let* ((code (nba/clean-code-output response))
+             (symbol-name (nba/get-symbol-name code)))
+        (if symbol-name
+            (nba/show-ghost-text symbol-name code)
+          (message "Could not determine symbol name from LLM output!"))))
+
+    (defun nba/send-to-llm (context)
+      "Send CONTEXT to LLM and return suggestions."
+      (let ((prompt (nba/build-prompt context)))
+        (gptel-request prompt :callback #'nba/display-suggestions)))
+
+    ;;;; === Section: Trigger ===
+
+    (defun nba/next-best-action ()
+      "Ask LLM for next best action after current edit."
+      (interactive)
+      (nba/send-to-llm (nba/collect-context)))
+#+end_src
+
+#+RESULTS:
+: nba/next-best-action
+
+** Docker
+#+begin_src emacs-lisp
+(use-package docker
+  :ensure t
+  :bind ("C-c d" . docker))
+#+end_src
+
+#+RESULTS:
+: docker
 
 * Multi File Example
 ** Adding the lisp directory to load-path
