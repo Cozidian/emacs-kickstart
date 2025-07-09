@@ -31,7 +31,6 @@
   - [[#aidermacs][Aidermacs]]
   - [[#copilot][copilot]]
 - [[#development][Development]]
-  - [[#vterm][Vterm]]
   - [[#projectile][Projectile]]
   - [[#ediff][ediff]]
   - [[#company][Company]]
@@ -62,6 +61,7 @@
   - [[#rainbow-delimiters][Rainbow Delimiters]]
   - [[#which-key][Which-Key]]
   - [[#elfeed][Elfeed]]
+  - [[#writer-tools][writer tools]]
 - [[#runtime-performance][Runtime Performance]]
 
 * Introduction
@@ -123,7 +123,8 @@ With Emacs 29 use-package is now built-in.
     (setq package-archives '(("melpa" . "https://melpa.org/packages/") ;; Sets default package repositories
                              ("org" . "https://orgmode.org/elpa/")
                              ("elpa" . "https://elpa.gnu.org/packages/")
-                             ("nongnu" . "https://elpa.nongnu.org/nongnu/"))) ;; For Eat Terminal
+))
+                             ;;("nongnu" . "https://elpa.nongnu.org/nongnu/"))) ;; For Eat Terminal
 #+end_src
 
 ** Add ripgrep and ag 
@@ -170,7 +171,6 @@ If you don't want to use evil-mode don't forget to remove:
       :init ;; Execute code Before a package is loaded
       (evil-mode)
       :config ;; Execute code After a package is loaded
-      (evil-set-initial-state 'eat-mode 'insert) ;; Set initial state in eat terminal to insert mode
       :custom ;; Customization of package custom variables
       (evil-want-keybinding nil)    ;; Disable evil bindings in other modes (It's not consistent and not good)
       (evil-want-C-u-scroll t)      ;; Set C-u to scroll up
@@ -264,7 +264,7 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
 
       (start/leader-keys
         "s" '(:ignore t :wk "Show")
-        "s e" '(eat :wk "Eat terminal"))
+        "s v" '(vterm :wk "vterm"))
 
       (start/leader-keys
         "o" '(:ignore t :wk "Org")
@@ -597,14 +597,6 @@ gptel install and setup
 : copilot-accept-completion
 
 * Development
-** Vterm
-#+begin_src emacs-lisp
-(use-package vterm
-    :ensure t)
-#+end_src
-
-#+RESULTS:
-
 ** Projectile
 Project interaction library for Emacs.
 #+begin_src emacs-lisp
@@ -911,13 +903,10 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
 : #s(hash-table test equal data ("3A7FD301-AF64-4579-A36B-16020EBB5A4B" "~/org/roam/daily/2025-06-27.org" "049c61ce-435c-467a-bcdb-a34adffed91d" "~/org/roam/daily/2025-05-30.org" "7ee49523-0b11-4cec-b635-194ac3463575" "~/org/org-roam/20250610201321-elkem.org" "5ab7efae-d56b-48c3-97af-8035ef42994f" "~/org/org-roam/20250610201218-projects.org" "37b0d3b4-83ee-4d86-8ad8-4a6a7a8e971e" "~/org/org-roam/20250530210145-something.org" "0b6e81f1-9c0a-483a-aca4-009f20522b77" "~/org/org-roam/20250530205509-test.org" "dd77fdb9-0cf3-40ed-87ea-c7257a0a08fc" "~/org/org-roam/daily/2025-05-30.org"))
 
 ** Terminal
-*** Eat
-Eat(Emulate A Terminal) is a terminal emulator within Emacs.
-It's more portable and less overhead for users over like vterm or eshell.
-We setup eat with eshell, if you want to use bash, zsh etc., check out their git [[https://codeberg.org/akib/emacs-eat][repository]] how to do it.
+*** Vterm
 #+begin_src emacs-lisp
-    (use-package eat
-      :hook ('eshell-load-hook #'eat-eshell-mode))
+(use-package vterm
+    :ensure t)
 #+end_src
 
 ** Next best action feature
@@ -1384,12 +1373,12 @@ Highlights uncommitted changes on the left side of the window (area also known a
 
 ** Corfu terminal
 #+begin_src emacs-lisp
-(use-package corfu-terminal
-  :ensure t
-  :after corfu
-  :config
-  (unless (display-graphic-p)
-    (corfu-terminal-mode +1)))
+;; (use-package corfu-terminal
+;;   :ensure t
+;;   :after corfu
+;;   :config
+;;   (unless (display-graphic-p)
+;;     (corfu-terminal-mode +1)))
 #+end_src
 
 #+RESULTS:
@@ -1569,6 +1558,15 @@ Which-key is a helper utility for keychords (which key to press).
 
 #+RESULTS:
 : elfeed
+
+** writer tools
+#+begin_src emacs-lisp
+(use-package flycheck-vale
+  :ensure t
+  :after flycheck
+  :config
+  (flycheck-vale-setup))
+#+end_src
 
 * Runtime Performance
 Dial the GC threshold back down so that garbage collection happens more frequently but in less time.

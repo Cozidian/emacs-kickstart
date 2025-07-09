@@ -21,11 +21,12 @@
 (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config)))
 
 (require 'use-package-ensure) ;; Load use-package-always-ensure
-(setq use-package-always-ensure t) ;; Always ensures that a package is installed
-(setq package-archives '(("melpa" . "https://melpa.org/packages/") ;; Sets default package repositories
-                         ("org" . "https://orgmode.org/elpa/")
-                         ("elpa" . "https://elpa.gnu.org/packages/")
-                         ("nongnu" . "https://elpa.nongnu.org/nongnu/"))) ;; For Eat Terminal
+    (setq use-package-always-ensure t) ;; Always ensures that a package is installed
+    (setq package-archives '(("melpa" . "https://melpa.org/packages/") ;; Sets default package repositories
+                             ("org" . "https://orgmode.org/elpa/")
+                             ("elpa" . "https://elpa.gnu.org/packages/")
+))
+                             ;;("nongnu" . "https://elpa.nongnu.org/nongnu/"))) ;; For Eat Terminal
 
 (add-to-list 'exec-path "/opt/homebrew/bin")
 (setenv "PATH" (concat "/opt/homebrew/bin:" (getenv "PATH")))
@@ -41,7 +42,6 @@
   :init ;; Execute code Before a package is loaded
   (evil-mode)
   :config ;; Execute code After a package is loaded
-  (evil-set-initial-state 'eat-mode 'insert) ;; Set initial state in eat terminal to insert mode
   :custom ;; Customization of package custom variables
   (evil-want-keybinding nil)    ;; Disable evil bindings in other modes (It's not consistent and not good)
   (evil-want-C-u-scroll t)      ;; Set C-u to scroll up
@@ -129,7 +129,7 @@
 
   (start/leader-keys
     "s" '(:ignore t :wk "Show")
-    "s e" '(eat :wk "Eat terminal"))
+    "s v" '(vterm :wk "vterm"))
 
   (start/leader-keys
     "o" '(:ignore t :wk "Org")
@@ -366,9 +366,6 @@
 (define-key copilot-completion-map (kbd "<tab>") 'copilot-accept-completion)
 (define-key copilot-completion-map (kbd "TAB") 'copilot-accept-completion)
 
-(use-package vterm
-    :ensure t)
-
 (use-package projectile
   :init
   (projectile-mode)
@@ -565,8 +562,8 @@
 (unless (file-exists-p org-id-locations-file)
   (org-id-update-id-locations (directory-files-recursively org-roam-directory "\\.org$")))
 
-(use-package eat
-  :hook ('eshell-load-hook #'eat-eshell-mode))
+(use-package vterm
+    :ensure t)
 
 ;; (defvar nba--ghost-overlay nil "Overlay for NBA ghost text preview.")
 
@@ -971,12 +968,12 @@ export function example(...) {
   :after corfu
   :init (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
 
-(use-package corfu-terminal
-  :ensure t
-  :after corfu
-  :config
-  (unless (display-graphic-p)
-    (corfu-terminal-mode +1)))
+;; (use-package corfu-terminal
+;;   :ensure t
+;;   :after corfu
+;;   :config
+;;   (unless (display-graphic-p)
+;;     (corfu-terminal-mode +1)))
 
 (use-package cape
   :after corfu
@@ -1110,6 +1107,12 @@ export function example(...) {
      ("https://lobste.rs/rss" tech)
      ("https://hnrss.org/frontpage" hackernews)
      )))
+
+(use-package flycheck-vale
+  :ensure t
+  :after flycheck
+  :config
+  (flycheck-vale-setup))
 
 ;; Make gc pauses faster by decreasing the threshold.
 (setq gc-cons-threshold (* 2 1000 1000))
